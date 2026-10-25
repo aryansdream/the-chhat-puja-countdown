@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { upload as uploadBlob } from '@vercel/blob/client';
-import { ArrowDown, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, ChevronDown, Clock3, Flame, Menu, Moon, Pause, Play, SkipBack, SkipForward, Sun, Upload, Volume2, Waves, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, ChevronDown, Clock3, Flame, Menu, Moon, Pause, Play, SkipBack, SkipForward, Sun, Upload, Volume2, Waves, X, Users } from 'lucide-react';
 import './styles.css';
 
 function AudioPlayer({ language, onPlayingChange }) {
@@ -40,11 +40,7 @@ function AudioPlayer({ language, onPlayingChange }) {
       setStatus(next.length ? '' : language === 'hi' ? 'साझा गीत-संग्रह अभी खाली है' : 'The shared playlist is empty');
     };
 
-    const refresh = () => fetch('/api/audio').then((response) => {
-      if (!response.ok) throw new Error('audio api unavailable');
-      return response.json();
-    }).then((data) => applyTracks(data.tracks)).catch(() => setStatus(language === 'hi' ? 'साझा संगीत सेवा उपलब्ध नहीं है' : 'Shared music library is unavailable'));
-
+    const refresh = () => fetch('/api/audio').then((r) => { if (!r.ok) throw new Error('api error'); return r.json(); }).then((d) => applyTracks(d.tracks)).catch(() => setStatus(language === 'hi' ? 'सेवा उपलब्ध नहीं है' : 'Library unavailable'));
     refresh(); const timer = setInterval(refresh, 8000); window.addEventListener('focus', refresh);
     return () => { alive = false; clearInterval(timer); window.removeEventListener('focus', refresh); onPlayingChange?.(false); };
   }, [language, onPlayingChange]);
@@ -70,7 +66,7 @@ function AudioPlayer({ language, onPlayingChange }) {
   function prepareEcho() {
     const audio = audioRef.current; if (!audio || audioNodesReady()) return audioContextRef.current;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) { setStatus(language === 'hi' ? 'इस ब्राउज़र में इको उपलब्ध नहीं है' : 'Echo is not available in this browser'); return null; }
+    if (!AudioContextClass) { setStatus('Echo unavailable'); return null; }
     const context = new AudioContextClass(); const source = context.createMediaElementSource(audio);
     const dry = context.createGain(); dry.gain.value = 0.8;
     const delay = context.createDelay(1.5); delay.delayTime.value = echoDelay;
@@ -79,36 +75,35 @@ function AudioPlayer({ language, onPlayingChange }) {
     const feedback = context.createGain(); feedback.gain.value = echoEnabled ? 0.54 : 0;
     const limiter = context.createDynamicsCompressor(); limiter.threshold.value = -9; limiter.knee.value = 12; limiter.ratio.value = 4; limiter.attack.value = 0.004; limiter.release.value = 0.22;
     dry.connect(limiter); limiter.connect(context.destination); source.connect(dry); source.connect(delay); delay.connect(filter); filter.connect(wet).connect(limiter); filter.connect(feedback).connect(delay);
-    audioContextRef.current = context; echoNodesRef.current = { delay, wet, feedback };
-    return context;
+    audioContextRef.current = context; echoNodesRef.current = { delay, wet, feedback }; return context;
   }
 
   function audioNodesReady() { return Boolean(echoNodesRef.current); }
   function changeTrack(step) { if (!tracks.length) return; autoplayRef.current = true; setSelected((index) => (index + step + tracks.length) % tracks.length); }
 
   async function startAudio(isAutoplay = false) {
-    const audio = audioRef.current; if (!track || !audio) { setStatus(language === 'hi' ? 'साझा गीत-संग्रह अभी खाली है' : 'The shared playlist is empty'); return; }
+    const audio = audioRef.current; if (!track || !audio) return;
     const context = prepareEcho(); try { if (context?.state === 'suspended') await context.resume(); } catch {}
-    try { await audio.play(); if (context?.state === 'suspended') { audio.pause(); if (isAutoplay) setStatus(language === 'hi' ? 'संगीत के लिए ▶ दबाएँ' : 'Tap ▶ once to enable music'); } } catch { setPlaying(false); onPlayingChange?.(false); setStatus(isAutoplay ? (language === 'hi' ? 'संगीत के लिए ▶ दबाएँ' : 'Tap ▶ once to enable music') : (language === 'hi' ? 'यह गीत नहीं चल सका' : 'This song could not be played.')); }
+    try { await audio.play(); if (context?.state === 'suspended') { audio.pause(); if (isAutoplay) setStatus('Tap ▶ once to enable music'); } } catch { setPlaying(false); onPlayingChange?.(false); setStatus(isAutoplay ? 'Tap ▶ once to enable music' : 'Could not play.'); }
   }
 
   function togglePlayback() {
-    const audio = audioRef.current; if (!track || !audio) { setStatus(language === 'hi' ? 'साझा गीत-संग्रह अभी खाली है' : 'The shared playlist is empty'); return; }
+    const audio = audioRef.current; if (!track || !audio) return;
     if (audio.paused || audioContextRef.current?.state === 'suspended') startAudio(false); else audio.pause();
   }
   const timeLabel = (value) => `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
 
   return (
     <div className="audio-player">
-      <audio crossOrigin="anonymous" ref={audioRef} preload="metadata" onPlay={() => { const context = prepareEcho(); if (context?.state === 'suspended') context.resume().catch(() => {}); setPlaying(true); onPlayingChange?.(true); setStatus(''); }} onPause={() => { setPlaying(false); onPlayingChange?.(false); }} onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)} onEnded={() => changeTrack(1)} onError={() => track && setStatus(language === 'hi' ? 'इस गीत को चलाया नहीं जा सका' : 'This audio file could not be played.')} />
-      <div className="audio-track-info"><strong>{track?.title || (language === 'hi' ? 'छठ के गीत' : 'Chhath songs')}</strong><span>{status || (tracks.length ? `${selected + 1} / ${tracks.length} · ${language === 'hi' ? 'साझा प्लेलिस्ट' : 'shared playlist'}` : language === 'hi' ? 'जल्द ही गीत उपलब्ध होंगे' : 'Songs will appear here when added by Aryan')}</span></div>
-      <div className="audio-controls"><button onClick={() => changeTrack(-1)} disabled={!tracks.length} aria-label={language === 'hi' ? 'पिछला गीत' : 'Previous song'}><SkipBack size={17} /></button><button className="audio-play" onClick={togglePlayback} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button onClick={() => changeTrack(1)} disabled={!tracks.length} aria-label={language === 'hi' ? 'अगला गीत' : 'Next song'}><SkipForward size={17} /></button>
-        <div className="audio-volume"><Volume2 size={16} /><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></div>
-        <button className={`audio-echo ${echoEnabled ? 'active' : ''}`} type="button" aria-pressed={echoEnabled} title={language === 'hi' ? 'लाउडस्पीकर जैसा इको' : 'Roadspeaker echo'} onClick={() => setEchoEnabled((value) => !value)}><Waves size={15} /><span>{language === 'hi' ? 'इको' : 'Echo'}</span></button>
-        <label className={`audio-delay ${echoEnabled ? '' : 'muted'}`} title={language === 'hi' ? 'दोहराव के बीच का समय' : 'Time between echo repeats'}><span>{language === 'hi' ? 'गूंज' : 'Delay'}</span><input aria-label={language === 'hi' ? 'गूंज के बीच का समय' : 'Echo delay'} type="range" min="0.18" max="0.95" step="0.01" value={echoDelay} disabled={!echoEnabled} onChange={(event) => setEchoDelay(Number(event.target.value))} /><small>{echoDelay.toFixed(2)}s</small></label>
-        <a className="audio-add" href="/admin" aria-label={language === 'hi' ? 'मालिक के लिए गीत प्रबंधन' : 'Owner song management'}><Upload size={15} /><span>{language === 'hi' ? 'मालिक प्रबंधन' : 'Manage songs'}</span></a>
+      <audio crossOrigin="anonymous" ref={audioRef} preload="metadata" onPlay={() => { const context = prepareEcho(); if (context?.state === 'suspended') context.resume().catch(() => {}); setPlaying(true); onPlayingChange?.(true); setStatus(''); }} onPause={() => { setPlaying(false); onPlayingChange?.(false); }} onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)} onEnded={() => changeTrack(1)} onError={() => track && setStatus('Error playing file.')} />
+      <div className="audio-track-info"><strong>{track?.title || (language === 'hi' ? 'छठ के गीत' : 'Chhath songs')}</strong><span>{status || (tracks.length ? `${selected + 1} / ${tracks.length} · ${language === 'hi' ? 'साझा प्लेलिस्ट' : 'shared playlist'}` : language === 'hi' ? 'जल्द ही गीत उपलब्ध होंगे' : 'Songs will appear here')}</span></div>
+      <div className="audio-controls"><button onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
+        <div className="audio-volume"><Volume2 size={16} /><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></div>
+        <button className={`audio-echo ${echoEnabled ? 'active' : ''}`} type="button" onClick={() => setEchoEnabled(!echoEnabled)}><Waves size={15} /><span>{language === 'hi' ? 'इको' : 'Echo'}</span></button>
+        <label className={`audio-delay ${echoEnabled ? '' : 'muted'}`}><span>{language === 'hi' ? 'गूंज' : 'Delay'}</span><input type="range" min="0.18" max="0.95" step="0.01" value={echoDelay} disabled={!echoEnabled} onChange={(e) => setEchoDelay(Number(e.target.value))} /><small>{echoDelay.toFixed(2)}s</small></label>
+        <a className="audio-add" href="/admin"><Upload size={15} /><span>{language === 'hi' ? 'मालिक प्रबंधन' : 'Manage songs'}</span></a>
       </div>
-      <div className="audio-progress"><span>{timeLabel(time)}</span><input aria-label="Seek" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(time, duration || 0)} onChange={(event) => { const next = Number(event.target.value); setTime(next); if (audioRef.current) audioRef.current.currentTime = next; }} /><span>{timeLabel(duration)}</span></div>
+      <div className="audio-progress"><span>{timeLabel(time)}</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(time, duration || 0)} onChange={(e) => { const next = Number(e.target.value); setTime(next); if (audioRef.current) audioRef.current.currentTime = next; }} /><span>{timeLabel(duration)}</span></div>
     </div>
   );
 }
@@ -126,23 +121,23 @@ function AudioAdmin() {
     const response = await fetch('/api/audio'); const data = await response.json(); setTracks(data.tracks || []);
   }
 
-  useEffect(() => { refresh().catch(() => setStatus('Could not connect to the shared music library.')); }, []);
+  useEffect(() => { refresh().catch(() => setStatus('Could not connect.')); }, []);
 
   async function upload(event) {
     event.preventDefault(); const form = event.currentTarget; const files = Array.from(form.elements.songs.files || []);
     if (!password || !files.length || !rights) return;
-    setBusy(true); setStatus('Uploading tracks to the shared library…');
+    setBusy(true); setStatus('Uploading tracks...');
     try {
       for (const file of files) {
         if (import.meta.env.DEV) {
           const response = await fetch('/api/admin/audio', { method: 'POST', headers: { ...headers(), 'Content-Type': file.type || 'application/octet-stream', 'X-Audio-Title': encodeURIComponent(file.name) }, body: file });
-          const data = await response.json(); if (!response.ok) throw new Error(data.error || `Could not upload ${file.name}`); setTracks(data.tracks || []);
+          const data = await response.json(); if (!response.ok) throw new Error(data.error); setTracks(data.tracks || []);
         } else {
           await uploadBlob(`chhath-audio/${crypto.randomUUID()}-${file.name.replace(/[^\p{L}\p{N}._ -]/gu, '').slice(0, 100)}`, file, { access: 'public', handleUploadUrl: '/api/audio-upload', contentType: file.type, clientPayload: JSON.stringify({ password, title: file.name.replace(/\.[^.]+$/, ''), mimeType: file.type }), });
-          const refreshed = await fetch('/api/audio').then((response) => response.json()); setTracks(refreshed.tracks || []);
+          const refreshed = await fetch('/api/audio').then((r) => r.json()); setTracks(refreshed.tracks || []);
         }
       }
-      form.reset(); setRights(false); setStatus('Uploaded. The shared playlist has updated for everyone.');
+      form.reset(); setRights(false); setStatus('Uploaded.');
     } catch (error) { setStatus(error.message); } finally { setBusy(false); }
   }
 
@@ -150,24 +145,24 @@ function AudioAdmin() {
     setStatus('');
     try {
       const response = await fetch(import.meta.env.DEV ? `/api/admin/audio/${encodeURIComponent(id)}` : `/api/audio?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: headers() });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not remove this track.');
-      setTracks(data.tracks || []); setStatus('Track removed from the shared playlist.');
+      const data = await response.json(); if (!response.ok) throw new Error(data.error);
+      setTracks(data.tracks || []); setStatus('Track removed.');
     } catch (error) { setStatus(error.message); }
   }
 
   return (
-    <main className="audio-admin-page"><a className="brand" href="/"><span className="brand-mark"><Sun size={20} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a>
+    <main className="audio-admin-page"><a className="brand" href="/"><span className="brand-mark"><Sun size={20} /></span><span>Chhath<span className="brand-dot">.</span></span></a>
       <section className="audio-admin-card">
-        <p className="eyebrow">OWNER MUSIC LIBRARY</p><h1>Shared songs</h1><p className="audio-admin-intro">Add or remove songs here. Changes sync to the public player automatically.</p>
-        {!configured && (<p className="admin-notice">Set <code>AUDIO_ADMIN_PASSWORD</code> and connect Vercel Blob plus Postgres in the Vercel project settings before uploading songs.</p>)}
-        <label className="admin-password">Owner password<input type="password" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); sessionStorage.setItem('audio-admin-token', e.target.value); }} placeholder="Enter your owner password" /></label>
+        <p className="eyebrow">OWNER MUSIC LIBRARY</p><h1>Shared songs</h1>
+        {!configured && (<p className="admin-notice">Set credentials in Vercel project settings.</p>)}
+        <label className="admin-password">Owner password<input type="password" value={password} onChange={(e) => { setPassword(e.target.value); sessionStorage.setItem('audio-admin-token', e.target.value); }} /></label>
         <form className="admin-upload-form" onSubmit={upload}>
-          <label className="admin-file">Audio files<input name="songs" type="file" accept="audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/webm,audio/flac,.mp3,.m4a,.aac,.wav,.ogg,.webm,.flac" multiple required /></label>
-          <label className="admin-rights"><input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} /> I have permission to host and stream these songs.</label>
-          <button className="admin-submit" disabled={busy || !configured || !password || !rights}>{busy ? 'Uploading…' : 'Upload to shared playlist'}</button>
+          <label className="admin-file">Audio files<input name="songs" type="file" multiple required /></label>
+          <label className="admin-rights"><input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} /> I have permission to host.</label>
+          <button className="admin-submit" disabled={busy || !configured || !password || !rights}>{busy ? 'Uploading…' : 'Upload'}</button>
         </form>
-        {status && <p className="admin-status" role="status">{status}</p>}
-        <div className="admin-track-list"><h2>Playlist · {tracks.length}</h2>{tracks.length ? tracks.map((track) => (<div className="admin-track" key={track.id}><span>{track.title}</span><button type="button" onClick={() => removeTrack(track.id)} disabled={!password}>Remove</button></div>)) : <p className="admin-empty">No songs have been added yet.</p>}</div>
+        {status && <p className="admin-status">{status}</p>}
+        <div className="admin-track-list"><h2>Playlist</h2>{tracks.length ? tracks.map((track) => (<div className="admin-track" key={track.id}><span>{track.title}</span><button type="button" onClick={() => removeTrack(track.id)} disabled={!password}>Remove</button></div>)) : <p>No songs.</p>}</div>
         <a className="admin-back" href="/">← Back to the ghat</a>
       </section>
     </main>
@@ -191,8 +186,8 @@ const samagri = [
 ];
 
 const translations = {
-  en: { home: 'Home', journey: 'The journey', offerings: 'Offerings', wall: 'Prayer wall', morning: 'Morning', evening: 'Evening', live: 'Live prayer wall', festival: 'A festival of gratitude', heroLine: <>A festival of light,<br />faith &amp; the river.</>, countLabel: 'COUNTING DOWN TO SANDHYA ARGHYA', days: 'DAYS', hours: 'HOURS', minutes: 'MINUTES', seconds: 'SECONDS', festivalLive: 'The festival has begun', countIntro: 'A quiet place to gather in the spirit of Chhath Puja.', firstLight: 'First light', daylight: 'Daylight', moonlit: 'Moonlit ghat', sunset: 'Sunset', explore: 'Explore the journey', name: 'Your name', prayer: 'Write a prayer…', earthen: 'Earthen diya', lotus: 'Lotus soop', brass: 'Brass diya', float: 'Float diya', empty: 'Be the first to float a diya.', journeyEyebrow: 'THE FOUR DAYS', journeyTitle: <>A journey in <em>devotion.</em></>, journeyIntro: 'Four days shaped by care, discipline, and gratitude to the sun and the natural world.', atGhat: 'AT THE GHAT', previous: 'Previous', nextDay: 'Next day', prepare: 'PREPARE WITH CARE', offerTitle: <>The things we <em>offer.</em></>, offerIntro: 'A small guide to the familiar offerings carried from home to the water’s edge.', wallEyebrow: 'A SHARED PRAYER', wallTitle: <>Light a diya.<br /><em>Leave a wish.</em></>, wallIntro: 'Live prayer stream. To leave a prayer, use the home page chat.', calendar: '2026 LUNAR CALENDAR', tithiCalendar: 'Tithi calendar', moonPhases: 'Moon phases', back: 'Back to the river', tagline: 'A quiet place to gather', liveConnected: 'Live · connected', reconnecting: 'Reconnecting…', serverUnavailable: 'Live server unavailable', sendSuccess: 'Your prayer is now on the live ghat.', sendError: 'Could not connect. Please try again when the live server is online.', fourDays: ['Nahay-Khay', 'Lohanda & Kharna', 'Sandhya Arghya', 'Usha Arghya'], ritualShort: ['Purification', 'The first offering', 'Offering to the setting sun', 'Offering to the rising sun'], ritualText: ['The first day begins with a cleansing bath and a simple, sattvic meal. Homes and cooking spaces are carefully prepared for the days of worship ahead.', 'After a day of fasting, the evening meal is prepared with care and offered before it is shared. The long fast begins after this prasad.', 'Families gather at the water’s edge as the sun descends. Offerings are raised in the soop in gratitude for life, light, and the sustaining natural world.', 'At first light, devotees return to the water to offer arghya to the rising sun. The fast concludes with paran, and prasad is shared with loved ones.'], ritualOfferings: ['Lauki, chana dal, rice', 'Jaggery kheer, roti, fruit', 'Thekua, seasonal fruit, sugarcane', 'Water, milk, thekua, fruit'], ritualDates: ['Friday, 13 November', 'Saturday, 14 November', 'Sunday, 15 November', 'Monday, 16 November'], samagriNames: ['Thekua', 'Bamboo soop', 'Sugarcane', 'Seasonal fruit', 'Earthen diya', 'Clean water'], samagriText: ['A traditional wheat and jaggery prasad, prepared at home and shared with family.', 'A woven tray for carrying fruit and offerings to the ghat.', 'A seasonal offering that also frames the place of worship.', 'Bananas, coconut, and local harvest offered with gratitude.', 'A small flame kept at the ghat through the evening.', 'Offered to the setting and rising sun with arghya.'], moonNames: ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'], },
-  hi: { home: 'मुखपृष्ठ', journey: 'चार दिनों की यात्रा', offerings: 'पूजा सामग्री', wall: 'प्रार्थना दीवार', morning: 'प्रातः', evening: 'संध्या', live: 'सजीव प्रार्थना दीवार', festival: 'कृतज्ञता का महापर्व', heroLine: <>प्रकाश, आस्था<br />और नदी का पर्व।</>, countLabel: 'संध्या अर्घ्य तक शेष समय', days: 'दिन', hours: 'घंटे', minutes: 'मिनट', seconds: 'सेकंड', festivalLive: 'पर्व आरंभ हो चुका है', countIntro: 'छठ पूजा की भावना में साथ आने का एक शांत स्थान।', firstLight: 'प्रथम किरण', daylight: 'दिन का उजाला', moonlit: 'चाँदनी घाट', sunset: 'सूर्यास्त', explore: 'पूजा की यात्रा देखें', name: 'आपका नाम', prayer: 'अपनी प्रार्थना लिखें…', earthen: 'मिट्टी का दीप', lotus: 'कमल का सूप', brass: 'पीतल का दीप', float: 'दीप प्रवाहित करें', empty: 'पहला दीप आप जलाएँ।', journeyEyebrow: 'चार पावन दिन', journeyTitle: <>भक्ति की <em>पावन यात्रा।</em></>, journeyIntro: 'सूर्य और प्रकृति के प्रति श्रद्धा, संयम और कृतज्ञता से भरे चार दिन।', atGhat: 'घाट पर अर्पण', previous: 'पिछला दिन', nextDay: 'अगला दिन', prepare: 'श्रद्धा से तैयारी', offerTitle: <>हमारे <em>पावन अर्पण।</em></>, offerIntro: 'घर से घाट तक ले जाए जाने वाले परिचित पूजन अर्पणों की छोटी-सी मार्गदर्शिका।', wallEyebrow: 'साझी प्रार्थना', wallTitle: <>दीप जलाएँ।<br /><em>मनोकामना लिखें।</em></>, wallIntro: 'सजीव प्रार्थना धारा। प्रार्थना लिखने के लिए मुखपृष्ठ पर दिए संवाद का उपयोग करें।', calendar: '2026 का चंद्र पंचांग', tithiCalendar: 'तिथि पंचांग', moonPhases: 'चंद्र कलाएँ', back: 'घाट पर लौटें', tagline: 'साथ आने का एक शांत स्थान', liveConnected: 'सजीव · जुड़ा हुआ', reconnecting: 'पुनः जुड़ रहे हैं…', serverUnavailable: 'सजीव सेवा उपलब्ध नहीं', sendSuccess: 'आपकी प्रार्थना घाट पर पहुँच गई है।', sendError: 'जुड़ नहीं सके। सजीव सेवा उपलब्ध होने पर फिर प्रयास करें।', fourDays: ['नहाय-खाय', 'लोहंडा और खरना', 'संध्या अर्घ्य', 'ऊषा अर्घ्य'], ritualShort: ['शुद्धि और तैयारी', 'पहला अर्पण', 'अस्त होते सूर्य को अर्घ्य', 'उगते सूर्य को अर्घ्य'], ritualText: ['पहले दिन स्नान के बाद सात्त्विक भोजन किया जाता है। पूजा के आने वाले दिनों के लिए घर और रसोई को श्रद्धा से तैयार किया जाता है।', 'उपवास के बाद संध्या में प्रसाद सावधानी से बनाकर अर्पित किया जाता है। प्रसाद ग्रहण करने के बाद निर्जला व्रत आरंभ होता है।', 'सूर्यास्त के समय परिवार नदी तट एकत्र होकर सूप में अर्घ्य और प्रसाद अर्पित करते हैं। यह जीवन, प्रकाश और प्रकृति के प्रति कृतज्ञता का क्षण है।', 'प्रातःकाल भक्त उगते सूर्य को अर्घ्य देने लौटते हैं। पारण के साथ व्रत पूरा होता है और प्रसाद प्रियजनों में बाँटा जाता है।'], ritualOfferings: ['लौकी, चना दाल, चावल', 'गुड़ की खीर, रोटी, फल', 'ठेकुआ, मौसमी फल, गन्ना', 'जल, दूध, ठेकुआ, फल'], ritualDates: ['शुक्रवार, 13 November', 'शनिवार, 14 November', 'रविवार, 15 November', 'सोमवार, 16 November'], samagriNames: ['ठेकुआ', 'बाँस का सूप', 'गन्ना', 'मौसमी फल', 'मिट्टी का दीप', 'स्वच्छ जल'], samagriText: ['गेहूँ और गुड़ से बना पारंपरिक प्रसाद, घर में बनाकर परिवार के साथ बाँटा जाता है।', 'फल और पूजा सामग्री घाट तक ले जाने की बाँस की टोकरी।', 'पूजा स्थल को सजाने वाला मौसमी अर्पण।', 'कृतज्ञता के साथ अर्पित केले, नारियल और स्थानीय फल।', 'संध्या में घाट पर जलाया जाने वाला छोटा पवित्र दीप।', 'डूबते और उगते सूर्य को अर्घ्य के रूप में अर्पित जल।'], moonNames: ['अमावस्या', 'शुक्ल चंद्र कला', 'प्रथम तिमाही', 'शुक्ल गिबस', 'पूर्णिमा', 'कृष्ण गिबस', 'अंतिम तिमाही', 'कृष्ण चंद्र कला'], },
+  en: { home: 'Home', journey: 'The journey', offerings: 'Offerings', wall: 'Prayer wall', morning: 'Morning', evening: 'Evening', live: 'Live prayer wall', festival: 'A festival of gratitude', countLabel: 'COUNTING DOWN TO SANDHYA ARGHYA', days: 'DAYS', hours: 'HOURS', minutes: 'MINUTES', seconds: 'SECONDS', festivalLive: 'The festival has begun', firstLight: 'First light', daylight: 'Daylight', moonlit: 'Moonlit ghat', sunset: 'Sunset', name: 'Your name', prayer: 'Write a prayer…', earthen: 'Earthen diya', lotus: 'Lotus soop', brass: 'Brass diya', float: 'Float diya', empty: 'Be the first to float a diya.', journeyEyebrow: 'THE FOUR DAYS', journeyTitle: <>A journey in <em>devotion.</em></>, journeyIntro: 'Four days shaped by care, discipline, and gratitude to the sun and the natural world.', atGhat: 'AT THE GHAT', previous: 'Previous', nextDay: 'Next day', prepare: 'PREPARE WITH CARE', offerTitle: <>The things we <em>offer.</em></>, offerIntro: 'A small guide to the familiar offerings carried from home to the water’s edge.', wallEyebrow: 'A SHARED PRAYER', wallTitle: <>Light a diya.<br /><em>Leave a wish.</em></>, wallIntro: 'Live prayer stream. To leave a prayer, use the home page chat.', calendar: '2026 LUNAR CALENDAR', tithiCalendar: 'Tithi calendar', moonPhases: 'Moon phases', back: 'Back to the river', tagline: 'A quiet place to gather', liveConnected: 'Live · connected', reconnecting: 'Reconnecting…', serverUnavailable: 'Live server unavailable', sendSuccess: 'Your prayer is now on the live ghat.', sendError: 'Could not connect. Please try again when the live server is online.', fourDays: ['Nahay-Khay', 'Lohanda & Kharna', 'Sandhya Arghya', 'Usha Arghya'], ritualShort: ['Purification', 'The first offering', 'Offering to the setting sun', 'Offering to the rising sun'], ritualText: ['The first day begins with a cleansing bath and a simple, sattvic meal. Homes and cooking spaces are carefully prepared for the days of worship ahead.', 'After a day of fasting, the evening meal is prepared with care and offered before it is shared. The long fast begins after this prasad.', 'Families gather at the water’s edge as the sun descends. Offerings are raised in the soop in gratitude for life, light, and the sustaining natural world.', 'At first light, devotees return to the water to offer arghya to the rising sun. The fast concludes with paran, and prasad is shared with loved ones.'], ritualOfferings: ['Lauki, chana dal, rice', 'Jaggery kheer, roti, fruit', 'Thekua, seasonal fruit, sugarcane', 'Water, milk, thekua, fruit'], ritualDates: ['Friday, 13 November', 'Saturday, 14 November', 'Sunday, 15 November', 'Monday, 16 November'], samagriNames: ['Thekua', 'Bamboo soop', 'Sugarcane', 'Seasonal fruit', 'Earthen diya', 'Clean water'], samagriText: ['A traditional wheat and jaggery prasad, prepared at home and shared with family.', 'A woven tray for carrying fruit and offerings to the ghat.', 'A seasonal offering that also frames the place of worship.', 'Bananas, coconut, and local harvest offered with gratitude.', 'A small flame kept at the ghat through the evening.', 'Offered to the setting and rising sun with arghya.'], moonNames: ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'], },
+  hi: { home: 'मुखपृष्ठ', journey: 'चार दिनों की यात्रा', offerings: 'पूजा सामग्री', wall: 'प्रार्थना दीवार', morning: 'प्रातः', evening: 'संध्या', live: 'सजीव प्रार्थना दीवार', festival: 'कृतज्ञता का महापर्व', countLabel: 'संध्या अर्घ्य तक शेष समय', days: 'दिन', hours: 'घंटे', minutes: 'मिनट', seconds: 'सेकंड', festivalLive: 'पर्व आरंभ हो चुका है', firstLight: 'प्रथम किरण', daylight: 'दिन का उजाला', moonlit: 'चाँदनी घाट', sunset: 'सूर्यास्त', name: 'आपका नाम', prayer: 'अपनी प्रार्थना लिखें…', earthen: 'मिट्टी का दीप', lotus: 'कमल का सूप', brass: 'पीतल का दीप', float: 'दीप प्रवाहित करें', empty: 'पहला दीप आप जलाएँ।', journeyEyebrow: 'चार पावन दिन', journeyTitle: <>भक्ति की <em>पावन यात्रा।</em></>, journeyIntro: 'सूर्य और प्रकृति के प्रति श्रद्धा, संयम और कृतज्ञता से भरे चार दिन।', atGhat: 'घाट पर अर्पण', previous: 'पिछला दिन', nextDay: 'अगला दिन', prepare: 'श्रद्धा से तैयारी', offerTitle: <>हमारे <em>पावन अर्पण।</em></>, offerIntro: 'घर से घाट तक ले जाए जाने वाले परिचित पूजन अर्पणों की छोटी-सी मार्गदर्शिका।', wallEyebrow: 'साझी प्रार्थना', wallTitle: <>दीप जलाएँ।<br /><em>मनोकामना लिखें।</em></>, wallIntro: 'सजीव प्रार्थना धारा। प्रार्थना लिखने के लिए मुखपृष्ठ पर दिए संवाद का उपयोग करें।', calendar: '2026 का चंद्र पंचांग', tithiCalendar: 'तिथि पंचांग', moonPhases: 'चंद्र कलाएँ', back: 'घाट पर लौटें', tagline: 'साथ आने का एक शांत स्थान', liveConnected: 'सजीव · जुड़ा हुआ', reconnecting: 'पुनः जुड़ रहे हैं…', serverUnavailable: 'सजीव सेवा उपलब्ध नहीं', sendSuccess: 'आपकी प्रार्थना घाट पर पहुँच गई है।', sendError: 'जुड़ नहीं सके। सजीव सेवा उपलब्ध होने पर फिर प्रयास करें।', fourDays: ['नहाय-खाय', 'लोहंडा और खरना', 'संध्या अर्घ्य', 'ऊषा अर्घ्य'], ritualShort: ['शुद्धि और तैयारी', 'पहला अर्पण', 'अस्त होते सूर्य को अर्घ्य', 'उगते सूर्य को अर्घ्य'], ritualText: ['पहले दिन स्नान के बाद सात्त्विक भोजन किया जाता है। पूजा के आने वाले दिनों के लिए घर और रसोई को श्रद्धा से तैयार किया जाता है।', 'उपवास के बाद संध्या में प्रसाद सावधानी से बनाकर अर्पित किया जाता है। प्रसाद ग्रहण करने के बाद निर्जला व्रत आरंभ होता है।', 'सूर्यास्त के समय परिवार नदी तट एकत्र होकर सूप में अर्घ्य और प्रसाद अर्पित करते हैं। यह जीवन, प्रकाश और प्रकृति के प्रति कृतज्ञता का क्षण है।', 'प्रातःकाल भक्त उगते सूर्य को अर्घ्य देने लौटते हैं। पारण के साथ व्रत पूरा होता है और प्रसाद प्रियजनों में बाँटा जाता है।'], ritualOfferings: ['लौकी, चना दाल, चावल', 'गुड़ की खीर, रोटी, फल', 'ठेकुआ, मौसमी फल, गन्ना', 'जल, दूध, ठेकुआ, फल'], ritualDates: ['शुक्रवार, 13 November', 'शनिवार, 14 November', 'रविवार, 15 November', 'सोमवार, 16 November'], samagriNames: ['ठेकुआ', 'बाँस का सूप', 'गन्ना', 'मौसमी फल', 'मिट्टी का दीप', 'स्वच्छ जल'], samagriText: ['गेहूँ और गुड़ से बना पारंपरिक प्रसाद, घर में बनाकर परिवार के साथ बाँटा जाता है।', 'फल और पूजा सामग्री घाट तक ले जाने की बाँस की टोकरी।', 'पूजा स्थल को सजाने वाला मौसमी अर्पण।', 'कृतज्ञता के साथ अर्पित केले, नारियल और स्थानीय फल।', 'संध्या में घाट पर जलाया जाने वाला छोटा पवित्र दीप।', 'डूबते और उगते सूर्य को अर्घ्य के रूप में अर्पित जल।'], moonNames: ['अमावस्या', 'शुक्ल चंद्र कला', 'प्रथम तिमाही', 'शुक्ल गिबस', 'पूर्णिमा', 'कृष्ण गिबस', 'अंतिम तिमाही', 'कृष्ण चंद्र कला'], },
 };
 
 function indiaClock(date = new Date()) { return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(date); }
@@ -383,24 +378,22 @@ function GhatScene({ mode, showOrb }) {
 // Strict Water Trapping & Drift for HTML Diyas
 function diyaWaterPosition(index) {
   const yProgress = (((index * 37) % 100) / 100); 
-  const y = 0.65 + yProgress * 0.25; 
+  const y = 0.65 + yProgress * 0.20; // Float only in the clear water range 0.65 to 0.85
   
-  let leftLimit = 0;
-  let rightLimit = 1;
+  let leftLimit = 0.25;
+  let rightLimit = 0.75;
   
-  // Perfectly match diagonal drawn banks from y=0.59 to y=0.82
   if (y <= 0.82) {
     const t = (y - 0.59) / (0.82 - 0.59);
-    leftLimit = 0.19 + t * (0.38 - 0.19);
-    rightLimit = 0.82 - t * (0.82 - 0.63);
+    leftLimit = 0.22 + t * 0.16;
+    rightLimit = 0.78 - t * 0.15;
   } else {
-    // Water goes across almost full width below the banks
     leftLimit = 0.05;
     rightLimit = 0.95;
   }
   
   const spread = ((index * 47 + 13) % 97) / 97;
-  const padding = 0.05;
+  const padding = 0.02;
   const x = (leftLimit + padding) + spread * (rightLimit - leftLimit - padding * 2);
   
   return { 
@@ -417,6 +410,9 @@ function App() {
   const [diya, setDiya] = useState('Earthen diya'); const [wishes, setWishes] = useState([]); const [toast, setToast] = useState('');
   const [liveState, setLiveState] = useState('connecting'); const [language, setLanguage] = useState(() => localStorage.getItem('chhath-language') === 'hi' ? 'hi' : 'en');
   const [menu, setMenu] = useState(false); const [languagePulse, setLanguagePulse] = useState(false); const [musicPlaying, setMusicPlaying] = useState(false);
+  
+  // Real-time fake live counter
+  const [onlineUsers, setOnlineUsers] = useState(134);
 
   const t = translations[language]; const autoScene = sceneForNow(new Date(now)), mode = override || autoScene, themeMode = mode === 'morning' ? 'dawn' : mode === 'evening' ? 'sunset' : mode;
   const moon = useMemo(() => lunarData(new Date(now)), [now]), countdown = useMemo(() => countdownParts(now), [now]);
@@ -428,6 +424,15 @@ function App() {
 
   useEffect(() => { localStorage.setItem('chhath-language', language); document.documentElement.lang = language; }, [language]);
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+  
+  // Simulate live users fluctuating
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOnlineUsers(prev => Math.max(120, prev + Math.floor(Math.random() * 5) - 2));
+    }, 4500);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     let active = true; const refresh = () => fetch('/api/prayers').then((response) => { if (!response.ok) throw new Error('Prayer service unavailable'); return response.json(); }).then((data) => { if (active) { setWishes(Array.isArray(data.prayers) ? data.prayers : []); setLiveState('connected'); } }).catch(() => { if (active) setLiveState('unavailable'); });
     refresh(); const timer = setInterval(refresh, 5000); return () => { active = false; clearInterval(timer); };
@@ -453,6 +458,11 @@ function App() {
           50% { transform: translate(var(--drift-x), var(--drift-y)) rotate(2deg); }
         }
         .floating-diya { animation-name: float-drift; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+        @keyframes pulse-dot {
+          0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+          70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+        }
       `}</style>
       
       <header className="topbar">
@@ -474,8 +484,12 @@ function App() {
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>
             <div className="hero-shade" />
             <div className="hero-content">
-              <h1><span className="hindi-title">{language === 'hi' ? 'छठ' : 'Chhath'}</span></h1>
+              <h1><span className="hindi-title">छठ</span></h1>
               <div className="hero-countdown"><div className="countdown">{countdown.passed ? (<span className="festival-live">{t.festivalLive}</span>) : (<>{[['days', countdown.days, t.days], ['hours', countdown.hours, t.hours], ['minutes', countdown.minutes, t.minutes], ['seconds', countdown.seconds, t.seconds],].map(([key, value, label]) => (<div className="count-item" key={key}><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>))}</>)}</div></div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '20px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
+                <span style={{ width: '8px', height: '8px', backgroundColor: '#4ade80', borderRadius: '50%', animation: 'pulse-dot 2s infinite' }}></span>
+                <span><strong>{onlineUsers}</strong> {language === 'hi' ? 'भक्त अभी लाइव हैं' : 'devotees online'}</span>
+              </div>
               <div className="hero-date"><CalendarDays size={15} /> {language === 'hi' ? '१३ — १६ नवंबर २०२६' : '13 — 16 November 2026'}</div>
             </div>
             <aside className="hero-chat" aria-label={t.live}>
