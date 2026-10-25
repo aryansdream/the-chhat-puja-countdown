@@ -7,8 +7,8 @@ import './styles.css';
 function AudioPlayer({ language, onPlayingChange }) {
   const [tracks, setTracks] = useState([]), [selected, setSelected] = useState(0), [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(.72), [time, setTime] = useState(0), [duration, setDuration] = useState(0), [status, setStatus] = useState('');
-  const [echoEnabled, setEchoEnabled] = useState(true), [echoDelay, setEchoDelay] = useState(.48);
-  const audioRef = useRef(null), autoplayRef = useRef(false), audioContextRef = useRef(null), echoNodesRef = useRef(null);
+  const [echoEnabled, setEchoEnabled] = useState(true), [echoDelay, setEchoDelay] = useState(.24);
+  const audioRef = useRef(null), autoplayRef = useRef(true), audioContextRef = useRef(null), echoNodesRef = useRef(null);
   const tracksRef = useRef(tracks), selectedRef = useRef(selected), track = tracks[selected];
   tracksRef.current = tracks; selectedRef.current = selected;
   useEffect(() => {
@@ -34,11 +34,12 @@ function AudioPlayer({ language, onPlayingChange }) {
     const audio = audioRef.current;
     if (!audio || !track) return;
     audio.src = track.url;
+    audio.autoplay = true;
     audio.volume = volume;
     audio.load();
     if (autoplayRef.current) {
       autoplayRef.current = false;
-      audio.play().catch(() => setStatus(language==='hi'?'चलाने के लिए ▶ दबाएँ':'Press play to start listening.'));
+      startAudio(true);
     }
   }, [track?.url]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
@@ -82,13 +83,27 @@ function AudioPlayer({ language, onPlayingChange }) {
     autoplayRef.current = true;
     setSelected(index => (index + step + tracks.length) % tracks.length);
   }
+  async function startAudio(isAutoplay = false) {
+    const audio = audioRef.current;
+    if (!track || !audio) { setStatus(language==='hi'?'साझा गीत-संग्रह अभी खाली है':'The shared playlist is empty'); return; }
+    const context = prepareEcho();
+    try { if (context?.state === 'suspended') await context.resume(); } catch {}
+    try {
+      await audio.play();
+      if (context?.state === 'suspended') {
+        audio.pause();
+        if (isAutoplay) setStatus(language==='hi'?'संगीत के लिए ▶ दबाएँ':'Tap ▶ once to enable music');
+      }
+    } catch {
+      setPlaying(false);
+      onPlayingChange?.(false);
+      setStatus(isAutoplay ? (language==='hi'?'संगीत के लिए ▶ दबाएँ':'Tap ▶ once to enable music') : (language==='hi'?'यह गीत नहीं चल सका':'This song could not be played.'));
+    }
+  }
   function togglePlayback() {
     const audio = audioRef.current;
     if (!track || !audio) { setStatus(language==='hi'?'साझा गीत-संग्रह अभी खाली है':'The shared playlist is empty'); return; }
-    if (audio.paused) {
-      const context = prepareEcho();
-      Promise.resolve(context?.resume()).then(()=>audio.play()).catch(() => setStatus(language==='hi'?'यह गीत नहीं चल सका':'This song could not be played.'));
-    }
+    if (audio.paused || audioContextRef.current?.state === 'suspended') startAudio(false);
     else audio.pause();
   }
   const timeLabel = value => `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
@@ -215,13 +230,15 @@ function GhatScene({mode,showOrb}) {
   const paletteAt=(idx)=>{const lo=Math.max(0,Math.min(3,Math.floor(idx))),hi=Math.min(3,lo+1),p=Math.max(0,Math.min(1,idx-lo));return palettes[lo].map((color,i)=>blendHex(color,palettes[hi][i],p))};
   const worshippers=Array.from({length:30},(_,i)=>({x:i<15?.025+(i%15)*.016:.765+((i-15)%15)*.015,y:.625+((i*7)%8)*.012,s:.9+((i*13)%7)*.18,side:i<15?1:-1}));
   const drawOffering=(person,i)=>{const x=w*person.x,y=h*person.y,s=person.s*Math.max(.7,Math.min(1.2,w/1200)),dir=person.side;const clothes=['#c7503e','#c79132','#397c70','#a34b68','#d76e38','#557b98','#9d7544'];ctx.save();ctx.globalAlpha=.62+sceneBlend*.1;ctx.fillStyle='rgba(9,15,16,.6)';ctx.beginPath();ctx.ellipse(x,y+2*s,9*s,2.4*s,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#b88966';ctx.beginPath();ctx.arc(x,y-20*s,4.1*s,0,Math.PI*2);ctx.fill();ctx.fillStyle=['#211b1b','#34221b','#29201c'][i%3];ctx.beginPath();ctx.arc(x,y-21.8*s,4.2*s,Math.PI,Math.PI*2);ctx.fill();ctx.fillStyle=clothes[i%clothes.length];ctx.beginPath();ctx.moveTo(x-5*s,y-16*s);ctx.lineTo(x+4*s,y-16*s);ctx.lineTo(x+8*s,y+1*s);ctx.lineTo(x-8*s,y+1*s);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(247,207,144,.72)';ctx.beginPath();ctx.moveTo(x+dir*2*s,y-15*s);ctx.lineTo(x+dir*7*s,y-12*s);ctx.lineTo(x+dir*9*s,y+1*s);ctx.lineTo(x+dir*4*s,y+1*s);ctx.closePath();ctx.fill();ctx.strokeStyle='#bd8b69';ctx.lineWidth=1.8*s;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+dir*2*s,y-12*s);ctx.lineTo(x+dir*10*s,y-7*s);ctx.lineTo(x+dir*15*s,y-7*s);ctx.stroke();ctx.beginPath();ctx.moveTo(x-dir*2*s,y-12*s);ctx.lineTo(x+dir*5*s,y-5*s);ctx.stroke();ctx.fillStyle='#d2a457';ctx.beginPath();ctx.ellipse(x+dir*17*s,y-6.5*s,4.8*s,1.8*s,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,203,118,.78)';ctx.beginPath();ctx.ellipse(x+dir*17*s,y-8.2*s,1.1*s,2.4*s,0,0,Math.PI*2);ctx.fill();ctx.restore();};
+  const drawMovingClouds=(night=false)=>{ctx.save();ctx.beginPath();ctx.rect(0,0,w,h*.37);ctx.clip();ctx.filter=`blur(${Math.max(5,w*.006)}px)`;const clouds=[{y:.105,width:.27,speed:.55,offset:.08},{y:.19,width:.19,speed:.8,offset:.48},{y:.27,width:.23,speed:.42,offset:.82}];clouds.forEach((cloud,i)=>{const cw=w*cloud.width,cx=((t*30*cloud.speed+w*cloud.offset)%(w+cw*2))-cw,cy=h*(cloud.y+Math.sin(t*.012+i)*.003),ch=Math.max(12,h*.025);ctx.globalAlpha=night ? 0.09 : 0.12;ctx.fillStyle=night?'rgba(153,174,189,.62)':sceneBlend<.8?'rgba(255,239,207,.65)':'rgba(220,230,226,.7)';ctx.beginPath();ctx.ellipse(cx,cy,cw*.58,ch*.7,0,0,Math.PI*2);ctx.ellipse(cx+cw*.22,cy-ch*.18,cw*.35,ch*.9,0,0,Math.PI*2);ctx.ellipse(cx-cw*.2,cy-ch*.04,cw*.27,ch*.62,0,0,Math.PI*2);ctx.fill();});ctx.restore();};
+  const drawRiverRipples=()=>{ctx.save();ctx.beginPath();ctx.moveTo(w*.33,h*.34);ctx.quadraticCurveTo(w*.13,h*.49,w*.04,h*.79);ctx.lineTo(w*.96,h*.79);ctx.quadraticCurveTo(w*.82,h*.5,w*.65,h*.34);ctx.closePath();ctx.clip();ctx.globalCompositeOperation='screen';for(let i=0;i<12;i++){const x=w*(.22+((i*37)%60)/100),y=h*(.42+((i*23)%34)/100),phase=((t*.075+i*.173)%1+1)%1,radius=4+phase*Math.max(36,Math.min(w*.08,105)),alpha=(1-phase)*.2;ctx.strokeStyle=`rgba(255,231,188,${alpha})`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(x+Math.sin(t*.035+i)*2,y+Math.cos(t*.03+i)*1.5,radius,radius*.22,0,0,Math.PI*2);ctx.stroke();if(i%3===0){ctx.globalAlpha=alpha*.7;ctx.fillStyle='#ffe8bd';ctx.fillRect(x-radius*.25,y+2,Math.max(5,radius*.48),1);ctx.globalAlpha=1;}}ctx.restore();};
   const drawCelestial=(colors,celestial=orbPosition(modeRef.current,new Date()))=>{const sx=w*celestial.x/100,sy=h*celestial.y/100,r=Math.min(w*.065,53);if(showOrbRef.current&&celestial.body==='sun'){const halo=ctx.createRadialGradient(sx,sy,r*.15,sx,sy,r*4);halo.addColorStop(0,'rgba(255,226,166,.52)');halo.addColorStop(1,'rgba(255,212,158,0)');ctx.fillStyle=halo;ctx.fillRect(sx-r*4,sy-r*4,r*8,r*8);ctx.fillStyle='#ffe5ae';ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fill();}if(showOrbRef.current&&celestial.body==='moon'){const moon=lunarData(new Date()),mr=r*.74,illum=moon.illumination/100;ctx.fillStyle='rgba(228,238,239,.18)';ctx.beginPath();ctx.arc(sx,sy,mr*1.35,0,Math.PI*2);ctx.fill();ctx.fillStyle='#edf0df';ctx.beginPath();ctx.arc(sx,sy,mr,0,Math.PI*2);ctx.fill();ctx.save();ctx.beginPath();ctx.arc(sx,sy,mr,0,Math.PI*2);ctx.clip();ctx.fillStyle=colors[0];const offset=moon.fraction<.5?-2*mr*illum:2*mr*illum;ctx.beginPath();ctx.arc(sx+offset,sy,mr,0,Math.PI*2);ctx.fill();ctx.restore();}};
   const scene=(now)=>{t+=.008;const target=Math.max(0,sceneNames.indexOf(modeRef.current));sceneBlend+=(target-sceneBlend)*.012;const colors=paletteAt(sceneBlend),night=modeRef.current==='night',celestial=orbPosition(modeRef.current,new Date()),sx=w*celestial.x/100,sy=h*celestial.y/100,r=Math.min(w*.065,53),sky=ctx.createLinearGradient(0,0,0,h*.75);
-   if(dayImage.complete&&dayImage.naturalWidth&&nightImage.complete&&nightImage.naturalWidth){const drawCover=image=>{const scale=Math.max(w/image.naturalWidth,h/image.naturalHeight),imageW=image.naturalWidth*scale,imageH=image.naturalHeight*scale;ctx.drawImage(image,(w-imageW)/2,(h-imageH)/2,imageW,imageH);};const dayMix=.5-.5*Math.cos(Math.PI*Math.max(0,Math.min(1,sceneBlend)));ctx.save();ctx.globalAlpha=1-dayMix;drawCover(nightImage);ctx.globalAlpha=dayMix;drawCover(dayImage);ctx.restore();const tints=['#071525','#d08a61','#7299a1','#a75e48'],alphas=[.12,.08,.03,.17],idx=Math.min(2,Math.floor(sceneBlend)),progress=sceneBlend-idx;ctx.save();ctx.globalAlpha=alphas[idx]+(alphas[idx+1]-alphas[idx])*progress;ctx.fillStyle=blendHex(tints[idx],tints[idx+1],progress);ctx.fillRect(0,0,w,h);ctx.restore();drawCelestial(colors,{...orbPosition(modeRef.current,new Date()),y:21});if(night){ctx.fillStyle='rgba(235,241,231,.56)';for(let i=0;i<36;i++){const x=(i*97)%Math.max(1,w),y=(i*53)%Math.floor(h*.43);ctx.globalAlpha=.2+.2*(Math.sin(t+i)+1);ctx.fillRect(x,y,i%4===0?2:1,1);}ctx.globalAlpha=1;}raf=requestAnimationFrame(scene);return;}
-   sky.addColorStop(0,colors[0]);sky.addColorStop(.46,colors[1]);sky.addColorStop(.82,colors[2]);sky.addColorStop(1,colors[3]);ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+   if(dayImage.complete&&dayImage.naturalWidth&&nightImage.complete&&nightImage.naturalWidth){const drawCover=image=>{const scale=Math.max(w/image.naturalWidth,h/image.naturalHeight),imageW=image.naturalWidth*scale,imageH=image.naturalHeight*scale;ctx.drawImage(image,(w-imageW)/2,(h-imageH)/2,imageW,imageH);};const dayMix=.5-.5*Math.cos(Math.PI*Math.max(0,Math.min(1,sceneBlend)));ctx.save();ctx.globalAlpha=1-dayMix;drawCover(nightImage);ctx.globalAlpha=dayMix;drawCover(dayImage);ctx.restore();const tints=['#071525','#d08a61','#7299a1','#a75e48'],alphas=[.12,.08,.03,.17],idx=Math.min(2,Math.floor(sceneBlend)),progress=sceneBlend-idx;ctx.save();ctx.globalAlpha=alphas[idx]+(alphas[idx+1]-alphas[idx])*progress;ctx.fillStyle=blendHex(tints[idx],tints[idx+1],progress);ctx.fillRect(0,0,w,h);ctx.restore();drawMovingClouds(night);drawRiverRipples();drawCelestial(colors,{...orbPosition(modeRef.current,new Date()),y:21});if(night){ctx.fillStyle='rgba(235,241,231,.56)';for(let i=0;i<36;i++){const x=(i*97)%Math.max(1,w),y=(i*53)%Math.floor(h*.43);ctx.globalAlpha=.2+.2*(Math.sin(t+i)+1);ctx.fillRect(x,y,i%4===0?2:1,1);}ctx.globalAlpha=1;}raf=requestAnimationFrame(scene);return;}
+   sky.addColorStop(0,colors[0]);sky.addColorStop(.46,colors[1]);sky.addColorStop(.82,colors[2]);sky.addColorStop(1,colors[3]);ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);drawMovingClouds(night);
    drawCelestial(colors);
    if(night){ctx.fillStyle='rgba(229,238,227,.5)';for(let i=0;i<40;i++){const x=(i*97)%Math.max(1,w),y=(i*53)%Math.floor(h*.55);ctx.globalAlpha=.25+.25*(Math.sin(t+i)+1);ctx.fillRect(x,y,i%4===0?2:1,1);}ctx.globalAlpha=1;}
-   const water=ctx.createLinearGradient(0,h*.62,0,h);water.addColorStop(0,blendHex('#516f75','#875c4d',sceneBlend/3));water.addColorStop(.24,blendHex('#29424b','#27323b',sceneBlend/3));water.addColorStop(1,colors[0]);ctx.fillStyle=water;ctx.fillRect(0,h*.62,w,h*.38);
+   const water=ctx.createLinearGradient(0,h*.62,0,h);water.addColorStop(0,blendHex('#516f75','#875c4d',sceneBlend/3));water.addColorStop(.24,blendHex('#29424b','#27323b',sceneBlend/3));water.addColorStop(1,colors[0]);ctx.fillStyle=water;ctx.fillRect(0,h*.62,w,h*.38);drawRiverRipples();
    ctx.fillStyle='rgba(250,210,150,.16)'; for(let i=0;i<9;i++){const yy=h*.67+i*13,ww=(r*1.8)*(1-i/11);ctx.fillRect(sx-ww/2+Math.sin(t+i)*10,yy,ww,1);}
    // A distant riverbank brings the opposite ghat and its Chhath offerings into view.
    const farBankY=h*.596;
