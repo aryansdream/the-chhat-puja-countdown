@@ -156,7 +156,7 @@ function AudioAdmin() {
   }
 
   return (
-    <main className="audio-admin-page"><a className="brand" href="/"><span className="brand-mark"><Sun size={20} /></span><span>छठ<span className="brand-dot">.</span></span></a>
+    <main className="audio-admin-page"><a className="brand" href="/"><span className="brand-mark"><Sun size={20} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a>
       <section className="audio-admin-card">
         <p className="eyebrow">OWNER MUSIC LIBRARY</p><h1>Shared songs</h1><p className="audio-admin-intro">Add or remove songs here. Changes sync to the public player automatically.</p>
         {!configured && (<p className="admin-notice">Set <code>AUDIO_ADMIN_PASSWORD</code> and connect Vercel Blob plus Postgres in the Vercel project settings before uploading songs.</p>)}
@@ -299,27 +299,21 @@ function GhatScene({ mode, showOrb }) {
     };
 
     const drawWorshipper = (x, y, s, color, skin, faceDir) => {
-      // Body
       ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x - 6*s, y); ctx.lineTo(x + 6*s, y); ctx.lineTo(x + 10*s, y + 25*s); ctx.lineTo(x - 10*s, y + 25*s); ctx.fill();
-      // Head & Neck
       ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(x, y - 8*s, 5.5*s, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + faceDir*1.5*s, y - 10*s, 5.5*s, Math.PI, Math.PI*2.2); ctx.fill(); // hair
-      // Bamboo Soop
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + faceDir*1.5*s, y - 10*s, 5.5*s, Math.PI, Math.PI*2.2); ctx.fill();
       const soopX = x + faceDir * 12 * s, soopY = y + 5 * s;
-      ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(x + faceDir*6*s, y + 5*s, 6*s, 2*s, faceDir*0.2, 0, Math.PI*2); ctx.fill(); // Arms
-      ctx.fillStyle = '#dbad6b'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 14*s, 4*s, 0, 0, Math.PI*2); ctx.fill(); // Soop base
-      ctx.fillStyle = '#c79240'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 12*s, 3*s, 0, 0, Math.PI*2); ctx.fill(); // Soop inner
-      // Offerings inside Soop
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(x + faceDir*6*s, y + 5*s, 6*s, 2*s, faceDir*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#dbad6b'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 14*s, 4*s, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c79240'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 12*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#e85d4f'; ctx.beginPath(); ctx.arc(soopX - 2*s, soopY - 2*s, 2*s, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#5fb365'; ctx.beginPath(); ctx.arc(soopX + 3*s, soopY - 1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
     };
 
     const drawSugarcaneMandap = (cx, baseY, s) => {
       ctx.strokeStyle = '#8fa358'; ctx.lineWidth = 3*s; ctx.lineCap = 'round';
-      // Stalks crossing over
       ctx.beginPath(); ctx.moveTo(cx - 25*s, baseY); ctx.quadraticCurveTo(cx - 15*s, baseY - 40*s, cx + 5*s, baseY - 60*s); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx + 25*s, baseY); ctx.quadraticCurveTo(cx + 15*s, baseY - 40*s, cx - 5*s, baseY - 60*s); ctx.stroke();
-      // Leaves at top
       ctx.fillStyle = '#658231';
       for(let i=0; i<4; i++) {
         ctx.beginPath(); ctx.ellipse(cx, baseY - 60*s, 10*s, 2*s, (i*45)*Math.PI/180, 0, Math.PI*2); ctx.fill();
@@ -358,26 +352,14 @@ function GhatScene({ mode, showOrb }) {
       ctx.beginPath(); ctx.moveTo(0, h * 0.59); ctx.lineTo(w * 0.19, h * 0.59); ctx.lineTo(w * 0.29, h * 0.72); ctx.lineTo(w * 0.38, h * 0.82); ctx.lineTo(0, h * 0.82); ctx.fill();
       ctx.beginPath(); ctx.moveTo(w, h * 0.59); ctx.lineTo(w * 0.82, h * 0.59); ctx.lineTo(w * 0.72, h * 0.72); ctx.lineTo(w * 0.63, h * 0.82); ctx.lineTo(w, h * 0.82); ctx.fill();
 
-      // Draw Sugarcane Mandaps on banks
       const sScale = Math.max(0.7, w/1200);
-      drawSugarcaneMandap(w * 0.12, h * 0.64, sScale);
-      drawSugarcaneMandap(w * 0.22, h * 0.73, sScale*1.2);
-      drawSugarcaneMandap(w * 0.88, h * 0.64, sScale);
-      drawSugarcaneMandap(w * 0.76, h * 0.75, sScale*1.2);
+      drawSugarcaneMandap(w * 0.12, h * 0.64, sScale); drawSugarcaneMandap(w * 0.22, h * 0.73, sScale*1.2);
+      drawSugarcaneMandap(w * 0.88, h * 0.64, sScale); drawSugarcaneMandap(w * 0.76, h * 0.75, sScale*1.2);
 
-      // Realistic Worshippers
-      const clothes = ['#c7503e', '#c79132', '#397c70', '#a34b68', '#d76e38'];
-      const skins = ['#a06f4c', '#8a5a3b', '#b58562'];
-      for (let i=0; i<8; i++) {
-        const x = w * (0.05 + i*0.025), y = h * (0.62 + (i%3)*0.03);
-        drawWorshipper(x, y, sScale, clothes[i%5], skins[i%3], 1);
-      }
-      for (let i=0; i<8; i++) {
-        const x = w * (0.95 - i*0.025), y = h * (0.62 + (i%3)*0.03);
-        drawWorshipper(x, y, sScale, clothes[(i+2)%5], skins[(i+1)%3], -1);
-      }
+      const clothes = ['#c7503e', '#c79132', '#397c70', '#a34b68', '#d76e38'], skins = ['#a06f4c', '#8a5a3b', '#b58562'];
+      for (let i=0; i<8; i++) { const x = w * (0.05 + i*0.025), y = h * (0.62 + (i%3)*0.03); drawWorshipper(x, y, sScale, clothes[i%5], skins[i%3], 1); }
+      for (let i=0; i<8; i++) { const x = w * (0.95 - i*0.025), y = h * (0.62 + (i%3)*0.03); drawWorshipper(x, y, sScale, clothes[(i+2)%5], skins[(i+1)%3], -1); }
 
-      // Draw glowing Ghat Diyas on the steps
       for (let i = 0; i < 15; i++) {
         const lx = w * (0.1 + (i%5)*0.03), ly = h * (0.6 + Math.floor(i/5)*0.05);
         const rx = w * (0.9 - (i%5)*0.03), ry = h * (0.6 + Math.floor(i/5)*0.05);
@@ -400,24 +382,30 @@ function GhatScene({ mode, showOrb }) {
 
 // Strict Water Trapping & Drift for HTML Diyas
 function diyaWaterPosition(index) {
-  // Water starts at y=0.62 and goes to 1.0. We use 0.65 to 0.85 for safe floating.
   const yProgress = (((index * 37) % 100) / 100); 
-  const y = 0.65 + yProgress * 0.20; 
+  const y = 0.65 + yProgress * 0.25; 
   
-  // Define the narrowing river banks based on the drawn canvas shapes
-  // At y=0.65, water width is approx 0.25 to 0.75
-  // At y=0.85, water width is approx 0.40 to 0.60
-  const bankOffset = 0.25 + (yProgress * 0.15); // How far inward the banks go
-  const leftLimit = bankOffset;
-  const rightLimit = 1 - bankOffset;
+  let leftLimit = 0;
+  let rightLimit = 1;
+  
+  // Perfectly match diagonal drawn banks from y=0.59 to y=0.82
+  if (y <= 0.82) {
+    const t = (y - 0.59) / (0.82 - 0.59);
+    leftLimit = 0.19 + t * (0.38 - 0.19);
+    rightLimit = 0.82 - t * (0.82 - 0.63);
+  } else {
+    // Water goes across almost full width below the banks
+    leftLimit = 0.05;
+    rightLimit = 0.95;
+  }
   
   const spread = ((index * 47 + 13) % 97) / 97;
-  const x = leftLimit + 0.05 + spread * (rightLimit - leftLimit - 0.1); // Safely padded
+  const padding = 0.05;
+  const x = (leftLimit + padding) + spread * (rightLimit - leftLimit - padding * 2);
   
   return { 
     left: `${x * 100}%`, 
     top: `${y * 100}%`,
-    // Adding CSS variables used for dynamic keyframe drifting
     '--drift-x': `${(spread * 30) - 15}px`, 
     '--drift-y': `${(spread * 15) - 7}px`
   };
@@ -459,7 +447,6 @@ function App() {
 
   return (
     <div id="top" className={`site ${themeMode} ${nav === 'Home' ? 'landing' : 'subpage'} ${languagePulse ? 'language-pulse' : ''} ${musicPlaying ? 'music-playing' : ''}`}>
-      {/* Inline style for the robust drifting animation of HTML diyas */}
       <style>{`
         @keyframes float-drift {
           0%, 100% { transform: translate(0, 0) rotate(-2deg); }
@@ -469,7 +456,7 @@ function App() {
       `}</style>
       
       <header className="topbar">
-        <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={20} /></span><span>छठ<span className="brand-dot">.</span></span></a>
+        <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={20} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a>
         <button className="menu-toggle" onClick={() => setMenu(!menu)} aria-label={language === 'hi' ? 'नेविगेशन खोलें' : 'Toggle navigation'}>{menu ? <X /> : <Menu />}</button>
         <nav className={menu ? 'nav-links open' : 'nav-links'} aria-label={language === 'hi' ? 'मुख्य नेविगेशन' : 'Main navigation'}>{['Home', 'The journey', 'Offerings', 'Prayer wall'].map((n, i) => (<button key={n} onClick={() => choose(n)} className={nav === n ? 'selected' : ''}>{[t.home, t.journey, t.offerings, t.wall][i]}</button>))}</nav>
         <div className="nav-side">
@@ -487,7 +474,7 @@ function App() {
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>
             <div className="hero-shade" />
             <div className="hero-content">
-              <h1><span className="hindi-title">छठ</span></h1>
+              <h1><span className="hindi-title">{language === 'hi' ? 'छठ' : 'Chhath'}</span></h1>
               <div className="hero-countdown"><div className="countdown">{countdown.passed ? (<span className="festival-live">{t.festivalLive}</span>) : (<>{[['days', countdown.days, t.days], ['hours', countdown.hours, t.hours], ['minutes', countdown.minutes, t.minutes], ['seconds', countdown.seconds, t.seconds],].map(([key, value, label]) => (<div className="count-item" key={key}><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>))}</>)}</div></div>
               <div className="hero-date"><CalendarDays size={15} /> {language === 'hi' ? '१३ — १६ नवंबर २०२६' : '13 — 16 November 2026'}</div>
             </div>
@@ -521,7 +508,7 @@ function App() {
         )}
       </main>
       {nav !== 'Home' && (
-        <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>छठ<span className="brand-dot">.</span></span></a><span>{t.tagline} · 2026</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
+        <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a><span>{t.tagline} · 2026</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
       )}
       <span className={`made-by ${nav === 'Home' ? 'on-home' : 'on-subpage'}`}>Made with <span aria-label="love">♥</span> by Aryan</span>
     </div>
