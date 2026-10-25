@@ -375,10 +375,9 @@ function GhatScene({ mode, showOrb }) {
   return <canvas ref={ref} className="ghat-canvas" aria-label="Animated river ghat with worshippers and sugarcane" />;
 }
 
-// Strict Water Trapping & Drift for HTML Diyas
 function diyaWaterPosition(index) {
   const yProgress = (((index * 37) % 100) / 100); 
-  const y = 0.65 + yProgress * 0.20; // Float only in the clear water range 0.65 to 0.85
+  const y = 0.65 + yProgress * 0.20;
   
   let leftLimit = 0.25;
   let rightLimit = 0.75;
@@ -410,8 +409,6 @@ function App() {
   const [diya, setDiya] = useState('Earthen diya'); const [wishes, setWishes] = useState([]); const [toast, setToast] = useState('');
   const [liveState, setLiveState] = useState('connecting'); const [language, setLanguage] = useState(() => localStorage.getItem('chhath-language') === 'hi' ? 'hi' : 'en');
   const [menu, setMenu] = useState(false); const [languagePulse, setLanguagePulse] = useState(false); const [musicPlaying, setMusicPlaying] = useState(false);
-  
-  // Real-time fake live counter
   const [onlineUsers, setOnlineUsers] = useState(134);
 
   const t = translations[language]; const autoScene = sceneForNow(new Date(now)), mode = override || autoScene, themeMode = mode === 'morning' ? 'dawn' : mode === 'evening' ? 'sunset' : mode;
@@ -425,7 +422,6 @@ function App() {
   useEffect(() => { localStorage.setItem('chhath-language', language); document.documentElement.lang = language; }, [language]);
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   
-  // Simulate live users fluctuating
   useEffect(() => {
     const interval = setInterval(() => {
       setOnlineUsers(prev => Math.max(120, prev + Math.floor(Math.random() * 5) - 2));
@@ -463,6 +459,45 @@ function App() {
           70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
           100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
         }
+        
+        /* Persistent Global Audio Docking */
+        .persistent-audio-dock {
+          position: fixed;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(100% - 24px);
+          max-width: 960px;
+          z-index: 1000;
+          box-sizing: border-box;
+        }
+
+        /* Responsive Layout Rules */
+        .site {
+          padding-bottom: 90px;
+          overflow-x: hidden;
+        }
+        @media (max-width: 768px) {
+          .nav-links {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 16px;
+            gap: 12px;
+          }
+          .nav-links.open { display: flex; }
+          .journey-layout { flex-direction: column; }
+          .samagri-grid { grid-template-columns: 1fr; }
+          .countdown { flex-wrap: wrap; justify-content: center; gap: 8px; }
+          .hero-content h1 { font-size: 3rem; }
+          .audio-controls { flex-wrap: wrap; justify-content: center; gap: 8px; }
+          .floating-diyas { display: none; } /* Prevents overflow tap issues on narrow mobile viewports */
+        }
       `}</style>
       
       <header className="topbar">
@@ -478,7 +513,9 @@ function App() {
           <span className="moon-status"><Moon size={13} />{moonName} · {moon.illumination}%</span>
         </div>
       </header>
+
       <div className="global-scene" aria-hidden="true"><GhatScene mode={themeMode} showOrb /><div className="global-scene-shade" /></div>
+
       <main key={nav} className={nav === 'Home' ? 'home-view' : 'content-view'}>
         {nav === 'Home' && (
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>
@@ -504,7 +541,6 @@ function App() {
                 </button>
               ))}
             </div>
-            <div className="hero-bottom audio-open"><div className="audio-player-shell"><AudioPlayer language={language} onPlayingChange={setMusicPlaying} /></div></div>
             <div className="scene-label">{mode === 'morning' ? '01 / FIRST LIGHT' : '02 / LAST LIGHT'}<span>{override ? 'PREVIEW MODE' : 'ASIA / KOLKATA'}</span></div>
           </section>
         )}
@@ -521,6 +557,12 @@ function App() {
           <section className="date-note"><span>{t.calendar}</span><p>{language === 'hi' ? '८ नवंबर · कार्तिक अमावस्या (अमावस्या तिथि; खगोलीय अमावस्या ९ नवंबर, १२:३२ IST) · १३–१६ नवंबर · चतुर्थी से सप्तमी / छठ · २४ नवंबर · कार्तिक पूर्णिमा (पूर्णिमा २०:२३ IST)' : '8 Nov · Kartik Amavasya (new-moon tithi; exact new moon 9 Nov, 12:32 IST) · 13–16 Nov · Chaturthi to Saptami / Chhath · 24 Nov · Kartik Purnima (full moon 20:23 IST)'}</p><a href="https://www.drikpanchang.com/chhath/chhath-puja-calendar.html?geoname-id=1261481&year=2026" target="_blank" rel="noreferrer">{t.tithiCalendar} <ArrowRight size={14} /></a><a href="https://aa.usno.navy.mil/calculated/moon/phases?year=2026" target="_blank" rel="noreferrer">{t.moonPhases} <ArrowRight size={14} /></a></section>
         )}
       </main>
+
+      {/* Persistent Global Audio Dock */}
+      <div className="persistent-audio-dock">
+        <AudioPlayer language={language} onPlayingChange={setMusicPlaying} />
+      </div>
+
       {nav !== 'Home' && (
         <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a><span>{t.tagline} · 2026</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
       )}
