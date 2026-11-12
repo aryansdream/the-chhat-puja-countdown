@@ -1,96 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
+50 lines
 
-:root {
-  font-family: 'DM Sans', sans-serif;
-  color: #e9e8df;
-  background: #101719;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  --paper: #e9e8df;
-  --muted: #a5aaa2;
-  --dim: #6e7975;
-  --line: rgba(231, 230, 215, .13);
-  --gold: #d9bd87;
-  --green: #101719;
-  --serif: 'Playfair Display', Georgia, serif;
-}
+3
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: 84px;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  background: #101719;
-}
-
-button, input, textarea, select {
-  font: inherit;
-}
-
-button {
-  color: inherit;
-}
-
-.site {
-  min-height: 100vh;
-  overflow: hidden;
-  background: #101719;
-  transition: background-color 1s ease;
-  position: relative;
-  isolation: isolate;
-  --live-surface: rgba(20, 31, 34, .72);
-  --live-edge: rgba(235, 225, 202, .2);
-  --scene-ink: #101719;
-  --scene-panel: rgba(21, 31, 32, .84);
-  --scene-edge: rgba(231, 230, 215, .15);
-  --scene-muted: #a5aaa2;
-  --scene-accent: #d9bd87;
-}
-
-/* Base Navigation & Layout */
-.topbar {
-  height: 76px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(22px, 6vw, 94px);
-  border-bottom: 1px solid var(--line);
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 8;
-  background: linear-gradient(180deg, rgba(16, 23, 25, .74), rgba(16, 23, 25, .12));
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--paper);
-  text-decoration: none;
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: .03em;
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 31px;
-  height: 31px;
-  border: 1px solid rgba(226, 200, 153, .55);
-  border-radius: 50%;
-  color: #ebca91;
-}
-
-.brand-dot {
-  color: #dfbd7f;
-}
-
+2
+Find in logs
+Ctrl
+F
+14:44:24.339
+error during build:
+14:44:24.339
+[vite:build-html] Transform failed with 1 error:
+14:44:24.339
+/vercel/path0/src/main.jsx:121:0: ERROR: Unexpected "}"
+14:44:24.339
+file: /vercel/path0/src/main.jsx:121:0 (/vercel/path0/index.html)
+14:44:24.339
+14:44:24.339
+Unexpected "}"
+14:44:24.339
+119|      </div>
+14:44:24.339
+120|    );
+14:44:24.339
+121|  }
+14:44:24.339
+   |  ^
+14:44:24.339
+122|
+14:44:24.340
+123|  createRoot(document.getElementById('root')).render(window.location.pathname.replace(/\/$/, '') === '/admin' ? <AudioAdmin /> : <App />);
+14:44:24.340
+14:44:24.340
+    at failureErrorWithLog (/vercel/path0/node_modules/esbuild/lib/main.js:1467:15)
+14:44:24.340
+    at /vercel/path0/node_modules/esbuild/lib/main.js:736:50
+14:44:24.340
+    at responseCallbacks.<computed> (/vercel/path0/node_modules/esbuild/lib/main.js:603:9)
+14:44:24.340
+    at handleIncomingPacket (/vercel/path0/node_modules/esbuild/lib/main.js:658:12)
+14:44:24.340
+    at Socket.readFromStdout (/vercel/path0/node_modules/esbuild/lib/main.js:581:7)
+14:44:24.340
+    at Socket.emit (node:events:514:28)
+14:44:24.341
+    at addChunk (node:internal/streams/readable:569:12)
+14:44:24.341
+    at readableAddChunkPushByteMode (node:internal/streams/readable:520:3)
+14:44:24.341
+    at Readable.push (node:internal/streams/readable:400:5)
+14:44:24.341
+    at Pipe.onStreamRead (node:internal/stream_base_commons:194:23)
+14:44:24.363
+Error: [BUILD_UTILS_SPAWN_1] Command "npm run build" exited with 1
