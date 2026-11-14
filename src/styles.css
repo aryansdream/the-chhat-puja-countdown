@@ -2303,3 +2303,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--festival-accent
 @media (max-width: 760px) {
   .global-scene-shade, .day .global-scene-shade, .dawn .global-scene-shade, .sunset .global-scene-shade { background: linear-gradient(180deg,rgba(4,17,25,.18),rgba(4,17,25,.62) 55%,rgba(4,17,25,.83)); }
 }
+/* Accommodate narrow screens with classic scrollbars and browser zoom. */
+body { min-width: 280px; }
+@media (max-width: 760px) {
+  .audio-player { grid-template-columns: minmax(0,1fr) auto; }
+}
