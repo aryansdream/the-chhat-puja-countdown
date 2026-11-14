@@ -98,7 +98,7 @@ function AudioPlayer({ language, onPlayingChange }) {
     <div className="audio-player">
       <audio crossOrigin="anonymous" ref={audioRef} preload="metadata" onPlay={() => { const context = prepareEcho(); if (context?.state === 'suspended') context.resume().catch(() => {}); setPlaying(true); onPlayingChange?.(true); setStatus(''); }} onPause={() => { setPlaying(false); onPlayingChange?.(false); }} onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)} onEnded={() => changeTrack(1)} onError={() => track && setStatus('Error playing file.')} />
       <div className="audio-track-info"><strong>{track?.title || (language === 'hi' ? 'छठ के गीत' : 'Chhath songs')}</strong><span>{status || (tracks.length ? `${selected + 1} / ${tracks.length} · ${language === 'hi' ? 'साझा प्लेलिस्ट' : 'shared playlist'}` : language === 'hi' ? 'जल्द ही गीत उपलब्ध होंगे' : 'Songs will appear here')}</span></div>
-      <div className="audio-controls"><button aria-label={language === 'hi' ? 'पिछला गीत' : 'Previous song'} onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" aria-label={playing ? (language === 'hi' ? 'रोकें' : 'Pause music') : (language === 'hi' ? 'संगीत चलाएँ' : 'Play music')} onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button aria-label={language === 'hi' ? 'अगला गीत' : 'Next song'} onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
+      <div className="audio-controls"><button aria-label={language === 'hi' ? 'पिछला गीत' : 'Previous song'} onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" disabled={!tracks.length} aria-label={playing ? (language === 'hi' ? 'रोकें' : 'Pause music') : (language === 'hi' ? 'संगीत चलाएँ' : 'Play music')} onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button aria-label={language === 'hi' ? 'अगला गीत' : 'Next song'} onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
         <div className="audio-volume"><Volume2 size={16} /><input aria-label={language === 'hi' ? 'आवाज़' : 'Volume'} type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></div>
         <button className={`audio-echo ${echoEnabled ? 'active' : ''}`} type="button" onClick={() => setEchoEnabled(!echoEnabled)}><Waves size={15} /><span>{language === 'hi' ? 'इको' : 'Echo'}</span></button>
         <label className={`audio-delay ${echoEnabled ? '' : 'muted'}`}><span>{language === 'hi' ? 'गूंज' : 'Delay'}</span><input type="range" min="0.18" max="0.95" step="0.01" value={echoDelay} disabled={!echoEnabled} onChange={(e) => setEchoDelay(Number(e.target.value))} /><small>{echoDelay.toFixed(2)}s</small></label>
@@ -213,166 +213,138 @@ function orbPosition(mode, date = new Date()) {
   return { x: 12 + 76 * Math.max(0, Math.min(1, nightProgress)), y: 38 - 9 * Math.sin(Math.PI * nightProgress), body: moon.illumination < 4 ? 'none' : 'moon', phase: moon.fraction };
 }
 
-function GhatScene({ mode, showOrb }) {
+function GhatScene({ mode, festivalDay = -1 }) {
   const ref = useRef(null);
-  const modeRef = useRef(mode); const showOrbRef = useRef(showOrb);
-  const animEntities = useRef({ birds: [], clouds: [] });
-
-  useEffect(() => { modeRef.current = mode; showOrbRef.current = showOrb; }, [mode, showOrb]);
+  const sceneSettings = useRef({ mode, festivalDay });
+  useEffect(() => { sceneSettings.current = { mode, festivalDay }; }, [mode, festivalDay]);
 
   useEffect(() => {
-    const canvas = ref.current; const ctx = canvas.getContext('2d');
-    
-    animEntities.current.clouds = Array.from({length: 6}, () => ({ x: Math.random(), y: 0.05 + Math.random() * 0.25, speed: 0.0002 + Math.random() * 0.0004, scale: 0.4 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2 }));
-    animEntities.current.birds = Array.from({length: 14}, () => ({ x: Math.random(), y: 0.1 + Math.random() * 0.3, speed: 0.0006 + Math.random() * 0.001, scale: 0.3 + Math.random() * 0.5, flap: 10 + Math.random() * 8, phase: Math.random() * Math.PI * 2 }));
-
-    let raf, w = 0, h = 0, t = 0;
-    const sceneNames = ['night', 'dawn', 'day', 'sunset']; let sceneBlend = sceneNames.indexOf(modeRef.current); if (sceneBlend < 0) sceneBlend = 1;
-
-    const resize = () => { const box = canvas.getBoundingClientRect(); const dpr = Math.min(devicePixelRatio || 1, 1.6); w = box.width; h = box.height; canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-    resize(); const ro = new ResizeObserver(resize); ro.observe(canvas);
-
-    const palettes = [['#0b1520', '#182837', '#263a46', '#45505a'], ['#233b49', '#54747f', '#bd877b', '#f0c993'], ['#2d536b', '#79a6ad', '#d9cca4', '#fff0c7'], ['#172637', '#4a5962', '#a76c57', '#efaa72']];
-    const hexRgb = (hex) => hex.match(/[\da-f]{2}/gi).map((v) => parseInt(v, 16));
-    const blendHex = (a, b, p) => `rgb(${hexRgb(a).map((v, i) => Math.round(v + (hexRgb(b)[i] - v) * p)).join(',')})`;
-    const paletteAt = (idx) => { const lo = Math.max(0, Math.min(3, Math.floor(idx))), hi = Math.min(3, lo + 1), p = Math.max(0, Math.min(1, idx - lo)); return palettes[lo].map((color, i) => blendHex(color, palettes[hi][i], p)); };
-
-    const drawStylizedClouds = (night) => {
-      animEntities.current.clouds.forEach(c => {
-        c.x += c.speed; if (c.x > 1.2) { c.x = -0.3; c.y = 0.05 + Math.random() * 0.25; }
-        const cx = c.x * w, cy = c.y * h + Math.sin(t*0.5 + c.phase)*2, s = c.scale * (w/1000);
-        ctx.save(); ctx.globalAlpha = night ? 0.15 : (sceneBlend < 0.8 ? 0.5 : 0.85); ctx.fillStyle = night ? '#94adc0' : (sceneBlend < 0.8 ? '#ffeacc' : '#ffffff');
-        ctx.beginPath(); ctx.arc(cx, cy, 30*s, Math.PI*0.5, Math.PI*1.5); ctx.arc(cx + 25*s, cy - 15*s, 35*s, Math.PI, Math.PI*2); ctx.arc(cx + 60*s, cy - 5*s, 25*s, Math.PI, Math.PI*2); ctx.arc(cx + 80*s, cy, 20*s, Math.PI*1.5, Math.PI*0.5); ctx.closePath(); ctx.fill(); ctx.restore();
-      });
-    };
-
-    const drawBirds = () => {
-      if (modeRef.current === 'night') return;
-      ctx.save(); ctx.fillStyle = sceneBlend > 2 ? 'rgba(50,25,15,0.8)' : 'rgba(20,30,40,0.6)';
-      animEntities.current.birds.forEach(b => {
-        b.x += b.speed; if (b.x > 1.1) { b.x = -0.1; b.y = 0.1 + Math.random()*0.3; }
-        const bx = b.x * w, by = b.y * h + Math.sin(t * 2 + b.phase) * 6, wing = Math.sin(t * b.flap + b.phase) * 8 * b.scale;
-        ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx - 10*b.scale, by - wing - 4*b.scale, bx - 16*b.scale, by - wing); ctx.quadraticCurveTo(bx - 6*b.scale, by - wing + 2*b.scale, bx, by + 3*b.scale); ctx.quadraticCurveTo(bx + 6*b.scale, by - wing + 2*b.scale, bx + 16*b.scale, by - wing); ctx.quadraticCurveTo(bx + 10*b.scale, by - wing - 4*b.scale, bx, by); ctx.fill();
-      });
-      ctx.restore();
-    };
-
-    const drawRiverRipples = () => {
-      ctx.save(); ctx.beginPath(); ctx.rect(0, h * 0.58, w, h * 0.42); ctx.clip();
-      ctx.fillStyle = `rgba(255, 235, 190, ${modeRef.current === 'night' ? 0.05 : 0.15})`;
-      for(let i=0; i<12; i++) {
-         const waveY = (t * 0.08 + i / 12) % 1, actualY = h * 0.62 + waveY * h * 0.38, waveWidth = w * (0.15 + waveY * 0.4);
-         ctx.fillRect(w * 0.5 - waveWidth/2 + Math.sin(t+i)*15, actualY, waveWidth, 1 + waveY*2.5);
-      }
-      for (let i = 0; i < 20; i++) {
-        const cx = w * (0.1 + ((i * 29) % 80) / 100), cy = h * (0.6 + ((i * 17) % 38) / 100);
-        const phase = ((t * 0.6 + i * 1.3) % 6) / 6, rx = Math.max(12, 10 + phase * Math.min(w * 0.15, 120)), ry = rx * 0.18, alpha = (1 - phase) * 0.45;
-        ctx.strokeStyle = `rgba(255,235,190,${alpha})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(cx + Math.sin(t * 1.5 + i) * 6, cy + Math.cos(t * 1.2 + i) * 2, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-      }
-      ctx.restore();
-    };
-
-    const drawCelestial = (colors, celestial = orbPosition(modeRef.current, new Date())) => {
-      const sx = (w * celestial.x) / 100, sy = (h * celestial.y) / 100, r = Math.min(w * 0.065, 53);
-      if (showOrbRef.current && celestial.body === 'sun') {
-        const pulse = 1 + Math.sin(t * 2.5) * 0.08, haloR = r * 4 * pulse, halo = ctx.createRadialGradient(sx, sy, r * 0.2, sx, sy, haloR);
-        halo.addColorStop(0, 'rgba(255,226,166,.55)'); halo.addColorStop(1, 'rgba(255,212,158,0)'); ctx.fillStyle = halo; ctx.fillRect(sx - haloR, sy - haloR, haloR * 2, haloR * 2);
-        ctx.fillStyle = '#ffe5ae'; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
-      }
-      if (showOrbRef.current && celestial.body === 'moon') {
-        const moon = lunarData(new Date()), mr = r * 0.74, illum = moon.illumination / 100;
-        ctx.fillStyle = 'rgba(228,238,239,.18)'; ctx.beginPath(); ctx.arc(sx, sy, mr * (1.35 + Math.sin(t*2)*0.05), 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#edf0df'; ctx.beginPath(); ctx.arc(sx, sy, mr, 0, Math.PI * 2); ctx.fill();
-        ctx.save(); ctx.beginPath(); ctx.arc(sx, sy, mr, 0, Math.PI * 2); ctx.clip();
-        ctx.fillStyle = colors[0]; const offset = moon.fraction < 0.5 ? -2 * mr * illum : 2 * mr * illum;
-        ctx.beginPath(); ctx.arc(sx + offset, sy, mr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      }
-    };
-
-    const drawWorshipper = (x, y, s, color, skin, faceDir) => {
-      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x - 6*s, y); ctx.lineTo(x + 6*s, y); ctx.lineTo(x + 10*s, y + 25*s); ctx.lineTo(x - 10*s, y + 25*s); ctx.fill();
-      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(x, y - 8*s, 5.5*s, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + faceDir*1.5*s, y - 10*s, 5.5*s, Math.PI, Math.PI*2.2); ctx.fill();
-      const soopX = x + faceDir * 12 * s, soopY = y + 5 * s;
-      ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(x + faceDir*6*s, y + 5*s, 6*s, 2*s, faceDir*0.2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#dbad6b'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 14*s, 4*s, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#c79240'; ctx.beginPath(); ctx.ellipse(soopX, soopY, 12*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#e85d4f'; ctx.beginPath(); ctx.arc(soopX - 2*s, soopY - 2*s, 2*s, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#5fb365'; ctx.beginPath(); ctx.arc(soopX + 3*s, soopY - 1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
-    };
-
-    const drawSugarcaneMandap = (cx, baseY, s) => {
-      ctx.strokeStyle = '#8fa358'; ctx.lineWidth = 3*s; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(cx - 25*s, baseY); ctx.quadraticCurveTo(cx - 15*s, baseY - 40*s, cx + 5*s, baseY - 60*s); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx + 25*s, baseY); ctx.quadraticCurveTo(cx + 15*s, baseY - 40*s, cx - 5*s, baseY - 60*s); ctx.stroke();
-      ctx.fillStyle = '#658231';
-      for(let i=0; i<4; i++) {
-        ctx.beginPath(); ctx.ellipse(cx, baseY - 60*s, 10*s, 2*s, (i*45)*Math.PI/180, 0, Math.PI*2); ctx.fill();
-      }
-    };
-
-    let previousFrame = 0;
+    const canvas = ref.current, ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const scene = (timestamp = 0) => {
-      if (document.hidden || timestamp - previousFrame < (reducedMotion ? 1000 : 40)) { raf = requestAnimationFrame(scene); return; }
-      previousFrame = timestamp;
-      t += 0.01; const target = Math.max(0, sceneNames.indexOf(modeRef.current)); sceneBlend += (target - sceneBlend) * 0.015;
-      const colors = paletteAt(sceneBlend), night = modeRef.current === 'night', celestial = orbPosition(modeRef.current, new Date()), sx = (w * celestial.x) / 100, r = Math.min(w * 0.065, 53);
-      
-      const sky = ctx.createLinearGradient(0, 0, 0, h * 0.75);
-      sky.addColorStop(0, colors[0]); sky.addColorStop(0.46, colors[1]); sky.addColorStop(0.82, colors[2]); sky.addColorStop(1, colors[3]);
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-      
-      drawStylizedClouds(night); drawCelestial(colors); drawBirds();
-
-      if (night) {
-        ctx.fillStyle = 'rgba(229,238,227,.6)';
-        for (let i = 0; i < 40; i++) { const x = (i * 97) % Math.max(1, w), y = (i * 53) % Math.floor(h * 0.55); ctx.globalAlpha = 0.25 + 0.5 * (Math.sin(t*3 + i) + 1); ctx.fillRect(x, y, i % 4 === 0 ? 2 : 1, 1); }
-        ctx.globalAlpha = 1;
-      }
-
-      const water = ctx.createLinearGradient(0, h * 0.62, 0, h);
-      water.addColorStop(0, blendHex('#516f75', '#875c4d', sceneBlend / 3)); water.addColorStop(0.24, blendHex('#29424b', '#27323b', sceneBlend / 3)); water.addColorStop(1, colors[0]);
-      ctx.fillStyle = water; ctx.fillRect(0, h * 0.62, w, h * 0.38);
-      drawRiverRipples();
-
-      ctx.fillStyle = 'rgba(250,210,150,.18)';
-      for (let i = 0; i < 9; i++) { const yy = h * 0.67 + i * 13, ww = r * 1.8 * (1 - i / 11); ctx.fillRect(sx - ww / 2 + Math.sin(t*2 + i) * 12, yy, ww, 1.5); }
-
-      const farBankY = h * 0.596; ctx.fillStyle = blendHex('#26312c', '#55433a', sceneBlend / 3);
-      ctx.beginPath(); ctx.moveTo(w * 0.17, farBankY); ctx.quadraticCurveTo(w * 0.5, h * 0.579, w * 0.83, farBankY); ctx.lineTo(w * 0.86, h * 0.655); ctx.quadraticCurveTo(w * 0.5, h * 0.665, w * 0.14, h * 0.655); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(219,190,135,.28)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(w * 0.18, farBankY); ctx.quadraticCurveTo(w * 0.5, h * 0.579, w * 0.82, farBankY); ctx.stroke();
-
-      ctx.fillStyle = blendHex('#1b282b', '#3b2f29', sceneBlend / 3);
-      ctx.beginPath(); ctx.moveTo(0, h * 0.59); ctx.lineTo(w * 0.19, h * 0.59); ctx.lineTo(w * 0.29, h * 0.72); ctx.lineTo(w * 0.38, h * 0.82); ctx.lineTo(0, h * 0.82); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(w, h * 0.59); ctx.lineTo(w * 0.82, h * 0.59); ctx.lineTo(w * 0.72, h * 0.72); ctx.lineTo(w * 0.63, h * 0.82); ctx.lineTo(w, h * 0.82); ctx.fill();
-
-      const sScale = Math.max(0.7, w/1200);
-      drawSugarcaneMandap(w * 0.12, h * 0.64, sScale); drawSugarcaneMandap(w * 0.22, h * 0.73, sScale*1.2);
-      drawSugarcaneMandap(w * 0.88, h * 0.64, sScale); drawSugarcaneMandap(w * 0.76, h * 0.75, sScale*1.2);
-
-      const clothes = ['#c7503e', '#c79132', '#397c70', '#a34b68', '#d76e38'], skins = ['#a06f4c', '#8a5a3b', '#b58562'];
-      for (let i=0; i<8; i++) { const x = w * (0.05 + i*0.025), y = h * (0.62 + (i%3)*0.03); drawWorshipper(x, y, sScale, clothes[i%5], skins[i%3], 1); }
-      for (let i=0; i<8; i++) { const x = w * (0.95 - i*0.025), y = h * (0.62 + (i%3)*0.03); drawWorshipper(x, y, sScale, clothes[(i+2)%5], skins[(i+1)%3], -1); }
-
-      for (let i = 0; i < 15; i++) {
-        const lx = w * (0.1 + (i%5)*0.03), ly = h * (0.6 + Math.floor(i/5)*0.05);
-        const rx = w * (0.9 - (i%5)*0.03), ry = h * (0.6 + Math.floor(i/5)*0.05);
-        const flicker = Math.sin(t*10 + i)*2;
-        ctx.fillStyle = `rgba(255, 180, 50, ${0.4 + flicker*0.05})`;
-        ctx.beginPath(); ctx.arc(lx, ly, 4 + flicker, 0, Math.PI*2); ctx.arc(rx, ry, 4 + flicker, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#ffcc44';
-        ctx.beginPath(); ctx.arc(lx, ly, 1.5, 0, Math.PI*2); ctx.arc(rx, ry, 1.5, 0, Math.PI*2); ctx.fill();
-      }
-
-      raf = requestAnimationFrame(scene);
+    const mobile = window.matchMedia('(max-width: 760px)').matches;
+    const random = (seed) => { const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return value - Math.floor(value); };
+    const stars = Array.from({ length: mobile ? 65 : 150 }, (_, i) => ({ x: random(i), y: random(i + 300) * .52, r: .4 + random(i + 600) * 1.1, phase: random(i + 900) * 6.28 }));
+    const dust = Array.from({ length: mobile ? 12 : 28 }, (_, i) => ({ x: random(i + 1500), y: random(i + 1600), phase: random(i + 1700) * 6.28 }));
+    let width = 0, height = 0, raf = 0, previous = 0, time = 0;
+    // Hand-painted palettes are blended live; the scene contains no bitmap backgrounds.
+    const palettes = {
+      night: ['#06141e', '#132f40', '#5e5a62', '#132e37', '#061c26', '#e8c38b'],
+      dawn: ['#172d43', '#6a6874', '#e6a07c', '#49616a', '#132c37', '#ffe0a4'],
+      day: ['#173c56', '#648f9d', '#c5c9b0', '#547c83', '#163b49', '#fff1bc'],
+      sunset: ['#1c263f', '#795568', '#e19a6d', '#514d5e', '#182d3d', '#ffca82'],
     };
+    const rgb = hex => hex.match(/[a-f\d]{2}/gi).map(n => parseInt(n, 16));
+    let colors = palettes[sceneSettings.current.mode] || palettes.night;
+    let liveColors = colors.map(rgb);
+    const color = (i, alpha = 1) => `rgba(${liveColors[i].map(Math.round).join(',')},${alpha})`;
+    const gradient = (x0, y0, x1, y1, stops) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); stops.forEach(([at, value]) => g.addColorStop(at, value)); return g; };
+    const resize = () => {
+      const box = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.3 : 1.7);
+      width = box.width; height = box.height; canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize(); const observer = new ResizeObserver(resize); observer.observe(canvas);
 
-    raf = requestAnimationFrame(scene);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    function temple(x, baseline, scale, variant) {
+      ctx.save(); ctx.translate(x, baseline); ctx.scale(scale, scale);
+      ctx.fillStyle = '#132b34';
+      ctx.fillRect(-22, -8, 44, 10); ctx.fillRect(-18, -18, 36, 12); ctx.fillRect(-13, -49, 26, 31);
+      if (variant % 2) {
+        ctx.beginPath(); ctx.moveTo(-18, -49); ctx.quadraticCurveTo(-5, -65, 0, -88); ctx.quadraticCurveTo(5, -65, 18, -49); ctx.closePath(); ctx.fill();
+        ctx.fillRect(-2, -98, 4, 14);
+      } else {
+        ctx.beginPath(); ctx.arc(0, -49, 18, Math.PI, 0); ctx.fill(); ctx.fillRect(-20, -50, 40, 5); ctx.fillRect(-1, -79, 2, 15);
+      }
+      ctx.strokeStyle = '#917850'; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(0, -95); ctx.lineTo(0, -120); ctx.stroke();
+      ctx.fillStyle = '#b17651'; ctx.beginPath(); ctx.moveTo(0, -120); ctx.quadraticCurveTo(13, -121 + Math.sin(time + x) * 2, 19, -114); ctx.lineTo(0, -109); ctx.fill();
+      ctx.fillStyle = 'rgba(246,192,116,.5)'; ctx.fillRect(-3, -35, 6, 13);
+      ctx.restore();
+    }
+
+    function diya(x, y, size, seed) {
+      const flicker = .88 + Math.sin(time * 2.4 + seed) * .12;
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, size * 9);
+      glow.addColorStop(0, 'rgba(255,178,83,.24)'); glow.addColorStop(.3, 'rgba(240,133,61,.06)'); glow.addColorStop(1, 'rgba(240,133,61,0)');
+      ctx.fillStyle = glow; ctx.fillRect(x - size * 9, y - size * 9, size * 18, size * 18);
+      ctx.fillStyle = '#a46945'; ctx.beginPath(); ctx.ellipse(x, y + size * 1.2, size * 2.4, size * .8, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = '#e8b77a'; ctx.beginPath(); ctx.ellipse(x, y + size, size * 2.4, size * .45, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffc16d'; ctx.beginPath(); ctx.moveTo(x, y - size * 4 * flicker); ctx.bezierCurveTo(x + size * 2, y - size, x + size, y + size, x, y + size); ctx.bezierCurveTo(x - size, y + size, x - size * 1.5, y - size, x, y - size * 4 * flicker); ctx.fill();
+      ctx.fillStyle = '#fff3cc'; ctx.beginPath(); ctx.ellipse(x, y - size * .5, size * .42, size * 1.2, 0, 0, Math.PI * 2); ctx.fill();
+      for (let j = 0; j < 5; j++) {
+        ctx.fillStyle = `rgba(255,191,103,${.25 * (1 - j / 5)})`;
+        ctx.fillRect(x - size * (1.3 + j * .25) + Math.sin(time + j + seed) * size, y + size * (3 + j * 2.3), size * (2.6 + j * .5), .7);
+      }
+    }
+
+    function render(timestamp = 0) {
+      const interval = reducedMotion ? 1000 : mobile ? 50 : 33;
+      if (timestamp - previous < interval) { raf = requestAnimationFrame(render); return; }
+      previous = timestamp; time = reducedMotion ? 0 : timestamp * .00035;
+      const settings = sceneSettings.current, night = settings.mode === 'night';
+      colors = palettes[settings.mode] || palettes.night;
+      colors.map(rgb).forEach((target, i) => target.forEach((v, j) => { liveColors[i][j] += (v - liveColors[i][j]) * .05; }));
+      const horizon = height * .53, orbX = width * (mobile ? .76 : .77), orbY = height * .28;
+      ctx.fillStyle = gradient(0, 0, 0, horizon * 1.2, [[0, color(0)], [.58, color(1)], [1, color(2)]]); ctx.fillRect(0, 0, width, height);
+      const atmosphere = ctx.createRadialGradient(orbX, horizon, 0, orbX, horizon, width * .55);
+      atmosphere.addColorStop(0, color(5, night ? .1 : .3)); atmosphere.addColorStop(1, color(5, 0)); ctx.fillStyle = atmosphere; ctx.fillRect(0, 0, width, height);
+      // Sparse stars, drifting mist, and the real lunar phase.
+      const starAlpha = night ? 1 : settings.mode === 'day' ? 0 : .2;
+      stars.forEach(star => { ctx.fillStyle = `rgba(231,238,228,${starAlpha * (.3 + .3 * Math.sin(time + star.phase))})`; ctx.beginPath(); ctx.arc(star.x * width, star.y * height, star.r, 0, Math.PI * 2); ctx.fill(); });
+      const radius = Math.min(width * .035, 44), halo = ctx.createRadialGradient(orbX, orbY, radius, orbX, orbY, radius * 7);
+      halo.addColorStop(0, color(5, night ? .11 : .21)); halo.addColorStop(.45, color(5, .035)); halo.addColorStop(1, color(5, 0));
+      ctx.fillStyle = halo; ctx.fillRect(orbX - radius * 7, orbY - radius * 7, radius * 14, radius * 14);
+      ctx.save(); ctx.beginPath(); ctx.arc(orbX, orbY, radius, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = night ? '#e0e6d9' : '#ffe2a3'; ctx.fillRect(orbX - radius, orbY - radius, radius * 2, radius * 2);
+      if (night) { const moon = lunarData(new Date()); ctx.fillStyle = color(0); ctx.beginPath(); ctx.arc(orbX + (moon.fraction < .5 ? -1 : 1) * radius * moon.illumination / 50, orbY, radius, 0, Math.PI * 2); ctx.fill(); } ctx.restore();
+      // Layered distant shores create depth without a photograph.
+      for (let layer = 0; layer < 3; layer++) {
+        ctx.fillStyle = ['rgba(27,47,58,.28)', 'rgba(22,44,53,.45)', '#16313b'][layer]; ctx.beginPath(); ctx.moveTo(0, horizon + 30);
+        for (let x = 0; x <= width + 20; x += 20) ctx.lineTo(x, horizon - 8 - layer * 7 + Math.sin(x / (100 + layer * 45) + layer * 2) * (12 + layer * 4));
+        ctx.lineTo(width, horizon + 40); ctx.closePath(); ctx.fill();
+      }
+      const unit = Math.max(.55, Math.min(width / 1500, 1.1));
+      [ .12, .19, .68, .75, .83, .92 ].forEach((x, i) => temple(width * x, horizon + 2 + (i % 2) * 8, unit * (.6 + random(i + 2400) * .6), i));
+      ctx.fillStyle = gradient(0, horizon, 0, height, [[0, color(3)], [.25, color(4)], [1, color(0)]]); ctx.fillRect(0, horizon + 12, width, height);
+      // A narrow path of light stretches across moving water.
+      const reflection = ctx.createRadialGradient(orbX, horizon, 0, orbX, horizon, height * .55);
+      reflection.addColorStop(0, color(5, .12)); reflection.addColorStop(1, color(5, 0)); ctx.fillStyle = reflection; ctx.fillRect(width * .45, horizon + 12, width * .55, height);
+      for (let i = 0; i < (mobile ? 40 : 75); i++) {
+        const depth = i / 75, y = horizon + 18 + depth ** 1.6 * height * .5;
+        const length = (20 + depth * 230) * (mobile ? .45 : 1), wave = Math.sin(time * 2 + i * .9) * (4 + depth * 13);
+        ctx.fillStyle = color(5, (.09 + Math.sin(i * 3.1) * .055) * (1 - depth * .65));
+        ctx.fillRect(orbX - length / 2 + wave, y, length, .8 + depth);
+      }
+      for (let i = 0; i < (mobile ? 26 : 55); i++) {
+        const depth = random(i + 3000), x = random(i + 3100) * width, y = horizon + 28 + depth * (height - horizon);
+        const length = (12 + depth * 60) * (mobile ? .6 : 1);
+        ctx.strokeStyle = `rgba(150,185,185,${.035 + depth * .04})`; ctx.lineWidth = .65; ctx.beginPath();
+        ctx.moveTo(x - length, y); ctx.quadraticCurveTo(x, y + Math.sin(time * 2 + i) * 4, x + length, y); ctx.stroke();
+      }
+      // Stone steps and rows of lights frame the shared water.
+      ctx.fillStyle = gradient(0, horizon, 0, height, [[0, '#142d32'], [1, '#071b22']]);
+      ctx.beginPath(); ctx.moveTo(width, horizon); ctx.lineTo(width * .96, horizon); ctx.bezierCurveTo(width * .9, height * .67, width * .96, height * .83, width * .68, height); ctx.lineTo(width, height); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#0b2229'; ctx.beginPath(); ctx.moveTo(0, horizon + 20); ctx.lineTo(width * .06, horizon + 20); ctx.quadraticCurveTo(width * .05, height * .8, width * .22, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 13; i++) {
+        const depth = i / 13, y = horizon + 23 + depth ** 1.6 * (height - horizon), x = width * (.963 - depth * depth * .25);
+        ctx.strokeStyle = `rgba(158,146,112,${.08 + depth * .08})`; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(width, y + 7); ctx.stroke();
+        diya(x + 8, y - 4, .6 + depth * 1.5, i);
+      }
+      const lampCount = mobile ? 10 : 22;
+      for (let i = 0; i < lampCount; i++) {
+        const depth = random(i + 3600), x = width * (.3 + random(i + 3700) * .56) + Math.sin(time * .5 + i) * 4;
+        const y = horizon + 36 + depth * (height - horizon) * .78;
+        diya(x, y, .55 + depth * (mobile ? 1 : 1.55), i + 100);
+      }
+      dust.forEach((mote, i) => { const x = ((mote.x + time * .003) % 1) * width, y = height * (.15 + mote.y * .7) + Math.sin(time + mote.phase) * 12; ctx.fillStyle = `rgba(255,205,133,${.08 + Math.max(0, Math.sin(time + i)) * .15})`; ctx.beginPath(); ctx.arc(x, y, mobile ? .65 : 1, 0, Math.PI * 2); ctx.fill(); });
+      // The daily ritual adds a gentle wash of its own light over the horizon.
+      const ritualColors = ['181,210,179', '239,184,117', '245,144,88', '255,222,160'];
+      if (settings.festivalDay >= 0) { const wash = ctx.createRadialGradient(width * .75, horizon, 0, width * .75, horizon, width * .45); wash.addColorStop(0, `rgba(${ritualColors[settings.festivalDay]},.065)`); wash.addColorStop(1, `rgba(${ritualColors[settings.festivalDay]},0)`); ctx.fillStyle = wash; ctx.fillRect(0, 0, width, height); }
+      raf = requestAnimationFrame(render);
+    }
+    const onVisibility = () => { cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(render); };
+    document.addEventListener('visibilitychange', onVisibility); raf = requestAnimationFrame(render);
+    return () => { cancelAnimationFrame(raf); observer.disconnect(); document.removeEventListener('visibilitychange', onVisibility); };
   }, []);
-
-  return <canvas ref={ref} className="ghat-canvas" aria-label="Animated river ghat with worshippers and sugarcane" />;
+  return <canvas ref={ref} className="ghat-canvas" aria-label="Living Chhath ghat: a changing sky, temple silhouettes, river reflections and glowing diyas" />;
 }
 
 // Position each diya relative to the clipped water layer, not the whole hero.
@@ -411,8 +383,9 @@ function App() {
   const phase = festivalState(now), festival = phase.festival;
   const countdown = countdownParts(now, phase.target);
   const dateRange = festivalRange(festival, language);
+  const sameYear = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(now)) === festival.year;
   const phaseTitle = phase.day >= 0 ? t.fourDays[phase.day] : language === 'hi' ? `छठ पूजा ${festival.year}` : `Chhath Puja ${festival.year}`;
-  const countdownLabel = phase.status === 'unlisted' ? (language === 'hi' ? 'अगले पर्व की तिथियाँ जल्द आएँगी' : 'Next festival dates will be announced') : phase.day === 3 ? (language === 'hi' ? 'ऊषा अर्घ्य और पारण का पावन दिन' : 'A day of Usha Arghya, Parana and shared prasad') : phase.status === 'next-year' ? (language === 'hi' ? `अगले वर्ष के छठ पूजा ${festival.year} तक` : `Until next year’s Chhath Puja ${festival.year}`) : (language === 'hi' ? `${t.fourDays[phase.nextDay]} के दिन तक` : `Until ${t.fourDays[phase.nextDay]} day begins`);
+  const countdownLabel = phase.status === 'unlisted' ? (language === 'hi' ? 'अगले पर्व की तिथियाँ जल्द आएँगी' : 'Next festival dates will be announced') : phase.day === 3 ? (language === 'hi' ? 'ऊषा अर्घ्य और पारण का पावन दिन' : 'A day of Usha Arghya, Parana and shared prasad') : phase.status === 'next-year' ? (language === 'hi' ? `${sameYear ? 'छठ पूजा' : 'अगले वर्ष के छठ पूजा'} ${festival.year} तक` : `Until ${sameYear ? '' : 'next year’s '}Chhath Puja ${festival.year}`) : (language === 'hi' ? `${t.fourDays[phase.nextDay]} के दिन तक` : `Until ${t.fourDays[phase.nextDay]} day begins`);
   const moonName = language === 'hi' ? t.moonNames[['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'].indexOf(moon.name)] || moon.name : moon.name;
 
   const liveLabel = { connecting: language === 'hi' ? 'प्रार्थना दीवार से जुड़ रहे हैं…' : 'Connecting to prayer wall…', connected: t.liveConnected, reconnecting: t.reconnecting, unavailable: t.serverUnavailable }[liveState] || liveState;
@@ -429,7 +402,7 @@ function App() {
     refresh(); const timer = setInterval(refresh, 5000); return () => { active = false; clearInterval(timer); };
   }, []);
 
-  function choose(navItem) { setMenu(false); if (navItem === nav) return; const change = () => { setNav(navItem); window.scrollTo({ top: 0, behavior: 'smooth' }); }; if (document.startViewTransition) document.startViewTransition(change); else change(); }
+  function choose(navItem) { setMenu(false); if (navItem === nav) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } const change = () => { setNav(navItem); window.scrollTo({ top: 0, behavior: 'smooth' }); }; if (document.startViewTransition) document.startViewTransition(change); else change(); }
   function switchLanguage() { const change = () => setLanguage(language === 'en' ? 'hi' : 'en'); if (document.startViewTransition) document.startViewTransition(change); else { change(); setLanguagePulse(true); setTimeout(() => setLanguagePulse(false), 520); } }
 
   async function submitWish(e) {
@@ -469,7 +442,7 @@ function App() {
           <span className="moon-status"><Moon size={13} />{moonName} · {moon.illumination}%</span>
         </div>
       </header>
-      <div className="global-scene" aria-hidden="true"><div className="ghat-photograph ghat-photograph-night" /><div className="ghat-photograph ghat-photograph-day" /><GhatScene mode={themeMode} showOrb /><div className="global-scene-shade" /></div>
+      <div className="global-scene" aria-hidden="true"><GhatScene mode={themeMode} festivalDay={phase.day} /><div className="global-scene-shade" /></div>
       <main key={nav} className={nav === 'Home' ? 'home-view' : 'content-view'}>
         {nav === 'Home' && (
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>

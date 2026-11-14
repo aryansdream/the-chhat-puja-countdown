@@ -2145,11 +2145,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--festival-accent
 .festival-offerings { font-size: 11px; line-height: 1.6; color: var(--festival-accent); margin: 7px 0 0; }
 
 /* Refined sanctuary: photographic river, quiet gold, and generous reading space. */
-.ghat-photograph { position: absolute; inset: 0; background-size: cover; background-position: 58% center; transition: opacity 1.4s ease; }
-.ghat-photograph-night { background-image: url('/images/chhath-ghat-night.webp'); }
-.ghat-photograph-day { background-image: url('/images/chhath-ghat-day.webp'); opacity: 0; }
-.day .ghat-photograph-day, .dawn .ghat-photograph-day, .sunset .ghat-photograph-day { opacity: 1; }
-.global-scene canvas { opacity: .1; mix-blend-mode: screen; }
 .global-scene-shade { background: linear-gradient(90deg, rgba(6,18,24,.93) 0%, rgba(6,18,24,.78) 37%, rgba(6,18,24,.22) 75%), linear-gradient(0deg, rgba(5,17,21,.94), transparent 60%); }
 .day .global-scene-shade, .dawn .global-scene-shade, .sunset .global-scene-shade { background: linear-gradient(90deg, rgba(22,30,29,.91), rgba(26,31,29,.7) 40%, rgba(26,31,29,.13)), linear-gradient(0deg, rgba(14,27,29,.9), transparent 60%); }
 .site .topbar { position: absolute; height: 90px; padding: 0 6%; background: linear-gradient(180deg,rgba(7,18,22,.7),transparent); border-bottom: 1px solid rgba(240,219,179,.12); gap: 24px; }
@@ -2267,7 +2262,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--festival-accent
   .made-by.on-home { bottom: 14px; right: 24px; }
   .global-scene-shade { background: linear-gradient(180deg,rgba(6,18,24,.6),rgba(6,18,24,.88) 70%); }
   .day .global-scene-shade, .dawn .global-scene-shade, .sunset .global-scene-shade { background: linear-gradient(180deg,rgba(19,29,29,.66),rgba(12,26,29,.93) 70%); }
-  .ghat-photograph { background-position: 58% center; }
   .subpage .section { padding: 110px 24px 40px; }
   .section-heading { gap: 20px; }
   .section-heading h2 { font-size: 37px; }
@@ -2299,4 +2293,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--festival-accent
   .audio-controls { display: flex !important; grid-row: 1; grid-column: 2; gap: 3px !important; }
   .audio-track-info { grid-column: 1; grid-row: 1; max-width: 150px; }
   .audio-progress { grid-row: 2; }
+}
+/* Live canvas atmosphere: no background-image assets. */
+.global-scene { background: #091c29; }
+.global-scene canvas { opacity: 1; mix-blend-mode: normal; }
+.global-scene-shade { background: linear-gradient(90deg,rgba(4,17,24,.65),rgba(4,17,24,.3) 43%,rgba(4,17,24,.04) 80%),linear-gradient(0deg,rgba(4,17,24,.55),transparent 45%); }
+.day .global-scene-shade, .dawn .global-scene-shade, .sunset .global-scene-shade { background: linear-gradient(90deg,rgba(8,24,33,.72),rgba(8,24,33,.4) 43%,rgba(8,24,33,.03) 80%),linear-gradient(0deg,rgba(5,21,29,.6),transparent 55%); }
+.landing .hero-chat { background: linear-gradient(140deg,rgba(20,40,45,.8),rgba(9,28,36,.78)); border-color: rgba(235,207,159,.25); }
+@media (max-width: 760px) {
+  .global-scene-shade, .day .global-scene-shade, .dawn .global-scene-shade, .sunset .global-scene-shade { background: linear-gradient(180deg,rgba(4,17,25,.18),rgba(4,17,25,.62) 55%,rgba(4,17,25,.83)); }
 }

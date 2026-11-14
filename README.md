@@ -19,3 +19,7 @@ The local `data/` folder is intentionally excluded from deployment and version c
 The active ritual changes at midnight Asia/Kolkata for all visitors, including visitors outside India. Before the festival the timer targets Nahay-Khay. During the first three days it counts to the next ritual day’s midnight, explicitly labelled as a day change rather than a local Arghya time. Usha Arghya remains visible throughout the final day. At midnight after the final day, the date range, journey, and timer switch automatically to the next festival. If the date table is exhausted, the site displays a dates-pending message rather than inventing lunar dates.
 
 Run `node --test src/festival.test.js` for midnight boundaries, festival completion, year rollover, localized dates, and countdown arithmetic. Run `npm run build` for the production build.
+
+## Living scene
+
+The background is rendered procedurally in Canvas 2D: blended dawn/day/sunset/night palettes, lunar phase, temple silhouettes, rippling reflections, flickering diyas, and drifting light. It uses no background-image files. The daily ritual changes the horizon glow. Rendering is capped at approximately 30 fps on desktop and 20 fps on phones, pauses in background tabs, and respects reduced-motion preferences.
