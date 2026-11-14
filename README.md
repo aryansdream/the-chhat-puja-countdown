@@ -22,4 +22,18 @@ Run `node --test src/festival.test.js` for midnight boundaries, festival complet
 
 ## Living scene
 
-The background is rendered procedurally in Canvas 2D: blended dawn/day/sunset/night palettes, lunar phase, temple silhouettes, rippling reflections, flickering diyas, and drifting light. It uses no background-image files. The daily ritual changes the horizon glow. Rendering is capped at approximately 30 fps on desktop and 20 fps on phones, pauses in background tabs, and respects reduced-motion preferences.
+The backdrop uses responsive gradients, while a dedicated arched scene combines original daily artwork with Canvas 2D water, reflections, flickering diyas, and atmospheric light. The interactive diyas remain inside this river, separated from text and forms. Rendering is capped at approximately 30 fps on desktop and 20 fps on phones, pauses offscreen and in background tabs, and respects reduced-motion preferences.
+
+## Daily artwork and shared music
+
+The home page pairs generated artwork for the active ritual with a separate animated river. Shared visitor diyas are restricted to scene-local water channels and never overlap the main text or prayer form. Four original artworks are stored in `public/images/ritual-0.webp` through `ritual-3.webp`, also used on the ritual journey. Background colors follow the active day.
+
+One persistent audio player sits outside the changing page content. Navigation among Home, The journey, Offerings and Prayer wall preserves the same audio element, song and playback position. Default volume is 20%; echo starts disabled. On phones, Music settings exposes volume, echo, delay and library controls. Browsers may require one tap on Play before allowing music.
+
+Validation: `node --test src/festival.test.js src/riverLayout.test.js` and `npm run build`. The canvas stops rendering when its river is offscreen or the browser tab is hidden.
+
+## Phone interaction and autoplay
+
+On phones, the daily art leads the page and the music player stays compact at the bottom. Music settings expands volume, echo, delay and library controls. Tapping a day opens a native modal card (a bottom sheet on phones), preserving the page position, trapping keyboard focus, and supporting Escape, dismissal, and previous/next day selection.
+
+Audible autoplay is attempted immediately. If browser policy blocks it, the first pointer or keyboard interaction unlocks playback. A manual pause is respected; page navigation does not restart a paused song.

@@ -3,21 +3,24 @@ import { createRoot } from 'react-dom/client';
 import { upload as uploadBlob } from '@vercel/blob/client';
 import { ArrowDown, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, ChevronDown, Clock3, Flame, Menu, Moon, Pause, Play, SkipBack, SkipForward, Sun, Upload, Volume2, Waves, X, Users } from 'lucide-react';
 import './styles.css';
+import { diyaWaterPosition } from './riverLayout.js';
 import { festivalState, countdownParts, ritualDate, festivalRange } from './festival.js';
 
 function AudioPlayer({ language, onPlayingChange }) {
   const [tracks, setTracks] = useState([]);
   const [selected, setSelected] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.72);
+  const [volume, setVolume] = useState(0.2);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState('');
-  const [echoEnabled, setEchoEnabled] = useState(true);
+  const [echoEnabled, setEchoEnabled] = useState(false);
   const [echoDelay, setEchoDelay] = useState(0.24);
 
   const audioRef = useRef(null);
   const autoplayRef = useRef(true);
+  const autoplayAllowedRef = useRef(true);
   const audioContextRef = useRef(null);
   const echoNodesRef = useRef(null);
   const tracksRef = useRef(tracks);
@@ -52,12 +55,24 @@ function AudioPlayer({ language, onPlayingChange }) {
     if (autoplayRef.current) { autoplayRef.current = false; startAudio(true); }
   }, [track?.url]);
 
+  useEffect(() => {
+    if (!track) return;
+    const unlock = event => {
+      if (!autoplayAllowedRef.current || event.target?.closest?.('.persistent-player')) return;
+      if (event.type === 'keydown' && !['Enter', ' ', 'Tab'].includes(event.key)) return;
+      startAudio(true);
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, [track?.url]);
+
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
 
   useEffect(() => {
     if (echoNodesRef.current) {
-      echoNodesRef.current.wet.gain.setTargetAtTime(echoEnabled ? 0.64 : 0, audioContextRef.current.currentTime, 0.12);
-      echoNodesRef.current.feedback.gain.setTargetAtTime(echoEnabled ? 0.54 : 0, audioContextRef.current.currentTime, 0.12);
+      echoNodesRef.current.wet.gain.setTargetAtTime(echoEnabled ? 0.22 : 0, audioContextRef.current.currentTime, 0.12);
+      echoNodesRef.current.feedback.gain.setTargetAtTime(echoEnabled ? 0.28 : 0, audioContextRef.current.currentTime, 0.12);
     }
   }, [echoEnabled]);
 
@@ -72,8 +87,8 @@ function AudioPlayer({ language, onPlayingChange }) {
     const dry = context.createGain(); dry.gain.value = 0.8;
     const delay = context.createDelay(1.5); delay.delayTime.value = echoDelay;
     const filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1700; filter.Q.value = 0.35;
-    const wet = context.createGain(); wet.gain.value = echoEnabled ? 0.64 : 0;
-    const feedback = context.createGain(); feedback.gain.value = echoEnabled ? 0.54 : 0;
+    const wet = context.createGain(); wet.gain.value = echoEnabled ? 0.22 : 0;
+    const feedback = context.createGain(); feedback.gain.value = echoEnabled ? 0.28 : 0;
     const limiter = context.createDynamicsCompressor(); limiter.threshold.value = -9; limiter.knee.value = 12; limiter.ratio.value = 4; limiter.attack.value = 0.004; limiter.release.value = 0.22;
     dry.connect(limiter); limiter.connect(context.destination); source.connect(dry); source.connect(delay); delay.connect(filter); filter.connect(wet).connect(limiter); filter.connect(feedback).connect(delay);
     audioContextRef.current = context; echoNodesRef.current = { delay, wet, feedback }; return context;
@@ -85,10 +100,11 @@ function AudioPlayer({ language, onPlayingChange }) {
   async function startAudio(isAutoplay = false) {
     const audio = audioRef.current; if (!track || !audio) return;
     const context = prepareEcho(); try { if (context?.state === 'suspended') await context.resume(); } catch {}
-    try { await audio.play(); if (context?.state === 'suspended') { audio.pause(); if (isAutoplay) setStatus('Tap ▶ once to enable music'); } } catch { setPlaying(false); onPlayingChange?.(false); setStatus(isAutoplay ? 'Tap ▶ once to enable music' : 'Could not play.'); }
+    try { await audio.play(); if (context?.state === 'suspended') { audio.pause(); if (isAutoplay) setStatus('Tap anywhere to enable music'); } else { autoplayAllowedRef.current = false; } } catch { setPlaying(false); onPlayingChange?.(false); setStatus(isAutoplay ? 'Tap anywhere to enable music' : 'Could not play.'); }
   }
 
   function togglePlayback() {
+    autoplayAllowedRef.current = false;
     const audio = audioRef.current; if (!track || !audio) return;
     if (audio.paused || audioContextRef.current?.state === 'suspended') startAudio(false); else audio.pause();
   }
@@ -99,6 +115,9 @@ function AudioPlayer({ language, onPlayingChange }) {
       <audio crossOrigin="anonymous" ref={audioRef} preload="metadata" onPlay={() => { const context = prepareEcho(); if (context?.state === 'suspended') context.resume().catch(() => {}); setPlaying(true); onPlayingChange?.(true); setStatus(''); }} onPause={() => { setPlaying(false); onPlayingChange?.(false); }} onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)} onEnded={() => changeTrack(1)} onError={() => track && setStatus('Error playing file.')} />
       <div className="audio-track-info"><strong>{track?.title || (language === 'hi' ? 'छठ के गीत' : 'Chhath songs')}</strong><span>{status || (tracks.length ? `${selected + 1} / ${tracks.length} · ${language === 'hi' ? 'साझा प्लेलिस्ट' : 'shared playlist'}` : language === 'hi' ? 'जल्द ही गीत उपलब्ध होंगे' : 'Songs will appear here')}</span></div>
       <div className="audio-controls"><button aria-label={language === 'hi' ? 'पिछला गीत' : 'Previous song'} onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" disabled={!tracks.length} aria-label={playing ? (language === 'hi' ? 'रोकें' : 'Pause music') : (language === 'hi' ? 'संगीत चलाएँ' : 'Play music')} onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button aria-label={language === 'hi' ? 'अगला गीत' : 'Next song'} onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
+        <button className="audio-settings-toggle" aria-label={language === 'hi' ? 'संगीत सेटिंग' : 'Music settings'} aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)}><Volume2 size={17} /></button>
+      </div>
+      <div className={`audio-settings ${settingsOpen ? 'open' : ''}`}>
         <div className="audio-volume"><Volume2 size={16} /><input aria-label={language === 'hi' ? 'आवाज़' : 'Volume'} type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></div>
         <button className={`audio-echo ${echoEnabled ? 'active' : ''}`} type="button" onClick={() => setEchoEnabled(!echoEnabled)}><Waves size={15} /><span>{language === 'hi' ? 'इको' : 'Echo'}</span></button>
         <label className={`audio-delay ${echoEnabled ? '' : 'muted'}`}><span>{language === 'hi' ? 'गूंज' : 'Delay'}</span><input type="range" min="0.18" max="0.95" step="0.01" value={echoDelay} disabled={!echoEnabled} onChange={(e) => setEchoDelay(Number(e.target.value))} /><small>{echoDelay.toFixed(2)}s</small></label>
@@ -229,7 +248,7 @@ function GhatScene({ mode, festivalDay = -1 }) {
     let width = 0, height = 0, raf = 0, previous = 0, time = 0;
     // Hand-painted palettes are blended live; the scene contains no bitmap backgrounds.
     const palettes = {
-      night: ['#06141e', '#132f40', '#5e5a62', '#132e37', '#061c26', '#e8c38b'],
+      night: ['#10152e', '#284856', '#d2a786', '#295a63', '#102e3d', '#ffd29a'],
       dawn: ['#172d43', '#6a6874', '#e6a07c', '#49616a', '#132c37', '#ffe0a4'],
       day: ['#173c56', '#648f9d', '#c5c9b0', '#547c83', '#163b49', '#fff1bc'],
       sunset: ['#1c263f', '#795568', '#e19a6d', '#514d5e', '#182d3d', '#ffca82'],
@@ -283,30 +302,46 @@ function GhatScene({ mode, festivalDay = -1 }) {
       const settings = sceneSettings.current, night = settings.mode === 'night';
       colors = palettes[settings.mode] || palettes.night;
       colors.map(rgb).forEach((target, i) => target.forEach((v, j) => { liveColors[i][j] += (v - liveColors[i][j]) * .05; }));
-      const horizon = height * .53, orbX = width * (mobile ? .76 : .77), orbY = height * .28;
+      const horizon = height * .56, orbX = width * .5, orbY = height * .275;
       ctx.fillStyle = gradient(0, 0, 0, horizon * 1.2, [[0, color(0)], [.58, color(1)], [1, color(2)]]); ctx.fillRect(0, 0, width, height);
       const atmosphere = ctx.createRadialGradient(orbX, horizon, 0, orbX, horizon, width * .55);
       atmosphere.addColorStop(0, color(5, night ? .1 : .3)); atmosphere.addColorStop(1, color(5, 0)); ctx.fillStyle = atmosphere; ctx.fillRect(0, 0, width, height);
+      ctx.save(); ctx.globalCompositeOperation = 'screen';
+      for (let band = 0; band < 4; band++) {
+        const light = ctx.createLinearGradient(0, 0, width, horizon);
+        light.addColorStop(0, 'rgba(63,142,162,0)'); light.addColorStop(.45, `rgba(85,179,171,${.035 + band * .007})`); light.addColorStop(1, 'rgba(218,154,129,0)');
+        ctx.strokeStyle = light; ctx.lineWidth = width * (.04 + band * .013); ctx.beginPath();
+        ctx.moveTo(-width * .2, horizon * .25 + band * 28);
+        ctx.bezierCurveTo(width * .25, -height * .1 + Math.sin(time * .25) * 8, width * .55, horizon * .55, width * 1.2, horizon * .12 + band * 35); ctx.stroke();
+      }
+      ctx.restore();
       // Sparse stars, drifting mist, and the real lunar phase.
       const starAlpha = night ? 1 : settings.mode === 'day' ? 0 : .2;
       stars.forEach(star => { ctx.fillStyle = `rgba(231,238,228,${starAlpha * (.3 + .3 * Math.sin(time + star.phase))})`; ctx.beginPath(); ctx.arc(star.x * width, star.y * height, star.r, 0, Math.PI * 2); ctx.fill(); });
-      const radius = Math.min(width * .035, 44), halo = ctx.createRadialGradient(orbX, orbY, radius, orbX, orbY, radius * 7);
+      const radius = Math.min(width * .09, 58), halo = ctx.createRadialGradient(orbX, orbY, radius, orbX, orbY, radius * 7);
       halo.addColorStop(0, color(5, night ? .11 : .21)); halo.addColorStop(.45, color(5, .035)); halo.addColorStop(1, color(5, 0));
       ctx.fillStyle = halo; ctx.fillRect(orbX - radius * 7, orbY - radius * 7, radius * 14, radius * 14);
       ctx.save(); ctx.beginPath(); ctx.arc(orbX, orbY, radius, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = night ? '#e0e6d9' : '#ffe2a3'; ctx.fillRect(orbX - radius, orbY - radius, radius * 2, radius * 2);
       if (night) { const moon = lunarData(new Date()); ctx.fillStyle = color(0); ctx.beginPath(); ctx.arc(orbX + (moon.fraction < .5 ? -1 : 1) * radius * moon.illumination / 50, orbY, radius, 0, Math.PI * 2); ctx.fill(); } ctx.restore();
+      ctx.save(); ctx.translate(orbX, orbY); ctx.rotate(time * .012);
+      for (const ring of [1.55, 1.7, 2.4]) { ctx.strokeStyle = color(5, ring > 2 ? .1 : .22); ctx.lineWidth = .6; ctx.beginPath(); ctx.arc(0, 0, radius * ring, 0, Math.PI * 2); ctx.stroke(); }
+      for (let ray = 0; ray < 72; ray++) {
+        const angle = ray * Math.PI / 36, from = radius * 1.85, to = radius * (ray % 6 === 0 ? 2.23 : 1.98);
+        ctx.strokeStyle = color(5, ray % 6 === 0 ? .35 : .15); ctx.lineWidth = .65; ctx.beginPath(); ctx.moveTo(Math.cos(angle) * from, Math.sin(angle) * from); ctx.lineTo(Math.cos(angle) * to, Math.sin(angle) * to); ctx.stroke();
+      }
+      ctx.restore();
       // Layered distant shores create depth without a photograph.
       for (let layer = 0; layer < 3; layer++) {
         ctx.fillStyle = ['rgba(27,47,58,.28)', 'rgba(22,44,53,.45)', '#16313b'][layer]; ctx.beginPath(); ctx.moveTo(0, horizon + 30);
         for (let x = 0; x <= width + 20; x += 20) ctx.lineTo(x, horizon - 8 - layer * 7 + Math.sin(x / (100 + layer * 45) + layer * 2) * (12 + layer * 4));
         ctx.lineTo(width, horizon + 40); ctx.closePath(); ctx.fill();
       }
-      const unit = Math.max(.55, Math.min(width / 1500, 1.1));
-      [ .12, .19, .68, .75, .83, .92 ].forEach((x, i) => temple(width * x, horizon + 2 + (i % 2) * 8, unit * (.6 + random(i + 2400) * .6), i));
+      const unit = Math.max(.48, Math.min(width / 650, 1.1));
+      [ .06, .16, .27, .73, .84, .94 ].forEach((x, i) => temple(width * x, horizon + 2 + (i % 2) * 8, unit * (.6 + random(i + 2400) * .6), i));
       ctx.fillStyle = gradient(0, horizon, 0, height, [[0, color(3)], [.25, color(4)], [1, color(0)]]); ctx.fillRect(0, horizon + 12, width, height);
       // A narrow path of light stretches across moving water.
       const reflection = ctx.createRadialGradient(orbX, horizon, 0, orbX, horizon, height * .55);
-      reflection.addColorStop(0, color(5, .12)); reflection.addColorStop(1, color(5, 0)); ctx.fillStyle = reflection; ctx.fillRect(width * .45, horizon + 12, width * .55, height);
+      reflection.addColorStop(0, color(5, .25)); reflection.addColorStop(1, color(5, 0)); ctx.fillStyle = reflection; ctx.fillRect(width * .15, horizon + 12, width * .7, height);
       for (let i = 0; i < (mobile ? 40 : 75); i++) {
         const depth = i / 75, y = horizon + 18 + depth ** 1.6 * height * .5;
         const length = (20 + depth * 230) * (mobile ? .45 : 1), wave = Math.sin(time * 2 + i * .9) * (4 + depth * 13);
@@ -328,7 +363,7 @@ function GhatScene({ mode, festivalDay = -1 }) {
         ctx.strokeStyle = `rgba(158,146,112,${.08 + depth * .08})`; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(width, y + 7); ctx.stroke();
         diya(x + 8, y - 4, .6 + depth * 1.5, i);
       }
-      const lampCount = mobile ? 10 : 22;
+      const lampCount = mobile ? 6 : 12;
       for (let i = 0; i < lampCount; i++) {
         const depth = random(i + 3600), x = width * (.3 + random(i + 3700) * .56) + Math.sin(time * .5 + i) * 4;
         const y = horizon + 36 + depth * (height - horizon) * .78;
@@ -340,44 +375,46 @@ function GhatScene({ mode, festivalDay = -1 }) {
       if (settings.festivalDay >= 0) { const wash = ctx.createRadialGradient(width * .75, horizon, 0, width * .75, horizon, width * .45); wash.addColorStop(0, `rgba(${ritualColors[settings.festivalDay]},.065)`); wash.addColorStop(1, `rgba(${ritualColors[settings.festivalDay]},0)`); ctx.fillStyle = wash; ctx.fillRect(0, 0, width, height); }
       raf = requestAnimationFrame(render);
     }
-    const onVisibility = () => { cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(render); };
+    let inView = true;
+    const onVisibility = () => { cancelAnimationFrame(raf); if (!document.hidden && inView) raf = requestAnimationFrame(render); };
+    const intersection = new IntersectionObserver(entries => { inView = entries[0].isIntersecting; onVisibility(); }, { rootMargin: '100px' });
+    intersection.observe(canvas);
     document.addEventListener('visibilitychange', onVisibility); raf = requestAnimationFrame(render);
-    return () => { cancelAnimationFrame(raf); observer.disconnect(); document.removeEventListener('visibilitychange', onVisibility); };
+    return () => { cancelAnimationFrame(raf); observer.disconnect(); intersection.disconnect(); document.removeEventListener('visibilitychange', onVisibility); };
   }, []);
   return <canvas ref={ref} className="ghat-canvas" aria-label="Living Chhath ghat: a changing sky, temple silhouettes, river reflections and glowing diyas" />;
 }
 
-// Position each diya relative to the clipped water layer, not the whole hero.
-// The water in GhatScene starts at 62% of the scene height. The side banks
-// extend farther into the river near the bottom, so the safe horizontal range
-// narrows as a diya moves down the screen.
-function diyaWaterPosition(index) {
-  const seed = (index * 47 + 13) % 97;
-  const spread = seed / 97;
-  const depth = ((index * 37) % 100) / 100;
-
-  // Coordinates are relative to .floating-diyas, which covers only the water.
-  const top = 8 + depth * 52;
-  const leftLimit = 29 + depth * 11;
-  const rightLimit = 71 - depth * 11;
-  const left = leftLimit + spread * (rightLimit - leftLimit);
-
-  return {
-    position: 'absolute',
-    left: `${left}%`,
-    top: `${top}%`,
-    '--drift-x': `${(spread * 2 - 1) * 2}px`,
-    '--drift-y': `${(spread * 2 - 1) * 1}px`,
-  };
+function RitualPalette({ index, rituals, language, onChange, onClose }) {
+  const ref = useRef(null), open = index !== null;
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow, pageX = window.scrollX, pageY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    dialog.showModal();
+    window.scrollTo({ left: pageX, top: pageY, behavior: 'instant' });
+    return () => { dialog.close(); document.body.style.overflow = previousOverflow; window.scrollTo({ left: pageX, top: pageY, behavior: 'instant' }); };
+  }, [open]);
+  const ritual = rituals[index ?? 0];
+  return <dialog ref={ref} className="ritual-palette" aria-labelledby="ritual-palette-title" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    {open && <article className="ritual-palette-card">
+      <button className="palette-close" onClick={onClose} aria-label={language === 'hi' ? 'बंद करें' : 'Close ritual card'} autoFocus><X size={19} /></button>
+      <img className="palette-art" src={`/images/ritual-${index}.webp`} alt={ritual.name} />
+      <div className="palette-copy"><p className="palette-date">{language === 'hi' ? 'दिन' : 'DAY'} {index + 1} / 4 · {ritual.date}</p><h2 id="ritual-palette-title">{ritual.name}</h2><p className="palette-short">{ritual.short}</p><p className="palette-description">{ritual.text}</p><div className="palette-offerings"><Flame size={16} /><div><span>{language === 'hi' ? 'पावन अर्पण' : 'OFFERINGS'}</span><p>{ritual.offerings}</p></div></div>
+      <div className="palette-navigation"><button onClick={() => onChange(index - 1)} disabled={index === 0}><ArrowLeft size={15} />{language === 'hi' ? 'पिछला' : 'Previous'}</button><div aria-label={language === 'hi' ? 'दिन चुनें' : 'Select a day'}>{rituals.map((day, i) => <button key={day.mark} aria-label={day.name} aria-current={index === i ? 'true' : undefined} onClick={() => onChange(i)}>{String(i + 1).padStart(2, '0')}</button>)}</div><button onClick={() => onChange(index + 1)} disabled={index === 3}>{language === 'hi' ? 'अगला' : 'Next'}<ArrowRight size={15} /></button></div></div>
+    </article>}
+  </dialog>;
 }
 
 function App() {
+  const [ritualDialog, setRitualDialog] = useState(null);
   const [nav, setNav] = useState('Home'); const [override, setOverride] = useState(null); const [now, setNow] = useState(Date.now());
   const [ritual, setRitual] = useState(() => Math.max(0, festivalState().day)); const [name, setName] = useState(''); const [message, setMessage] = useState('');
   const [diya, setDiya] = useState('Earthen diya'); const [wishes, setWishes] = useState([]); const [toast, setToast] = useState('');
   const [liveState, setLiveState] = useState('connecting'); const [language, setLanguage] = useState(() => localStorage.getItem('chhath-language') === 'hi' ? 'hi' : 'en');
   const [menu, setMenu] = useState(false); const [languagePulse, setLanguagePulse] = useState(false); const [musicPlaying, setMusicPlaying] = useState(false);
-  
+
   const t = translations[language]; const autoScene = sceneForNow(new Date(now)), mode = override || autoScene, themeMode = mode === 'morning' ? 'dawn' : mode === 'evening' ? 'sunset' : mode;
   const moon = useMemo(() => lunarData(new Date(now)), [now]);
   const phase = festivalState(now), festival = phase.festival;
@@ -394,7 +431,7 @@ function App() {
 
   useEffect(() => { localStorage.setItem('chhath-language', language); document.documentElement.lang = language; }, [language]);
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
-  
+
   useEffect(() => { setRitual(Math.max(0, phase.day)); setOverride(null); }, [phase.day, festival.year]);
 
   useEffect(() => {
@@ -418,8 +455,8 @@ function App() {
     <div id="top" className={`site ${themeMode} ${nav === 'Home' ? 'landing' : 'subpage'} ${languagePulse ? 'language-pulse' : ''} ${musicPlaying ? 'music-playing' : ''} festival-day-${phase.day + 1}`} >
       <style>{`
         @keyframes float-drift {
-          0%, 100% { transform: translate(0, 0) rotate(-2deg); }
-          50% { transform: translate(var(--drift-x), var(--drift-y)) rotate(2deg); }
+          0%, 100% { transform: translate(-50%, -50%) scale(var(--diya-scale)) rotate(-2deg); }
+          50% { transform: translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y))) scale(var(--diya-scale)) rotate(2deg); }
         }
         .floating-diya { animation-name: float-drift; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
         @keyframes pulse-dot {
@@ -428,7 +465,7 @@ function App() {
           100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
         }
       `}</style>
-      
+
       <header className="topbar">
         <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={20} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a>
         <button className="menu-toggle" aria-expanded={menu} onClick={() => setMenu(!menu)} aria-label={language === 'hi' ? 'नेविगेशन खोलें' : 'Toggle navigation'}>{menu ? <X /> : <Menu />}</button>
@@ -442,7 +479,7 @@ function App() {
           <span className="moon-status"><Moon size={13} />{moonName} · {moon.illumination}%</span>
         </div>
       </header>
-      <div className="global-scene" aria-hidden="true"><GhatScene mode={themeMode} festivalDay={phase.day} /><div className="global-scene-shade" /></div>
+      <div className="global-scene" aria-hidden="true"><div className="global-scene-shade" /></div>
       <main key={nav} className={nav === 'Home' ? 'home-view' : 'content-view'}>
         {nav === 'Home' && (
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>
@@ -453,37 +490,25 @@ function App() {
               <div className="festival-today" aria-live="polite">
                 <p className="festival-kicker">{phase.day >= 0 ? (language === 'hi' ? `आज · दिन ${phase.day + 1} / 4` : `TODAY · DAY ${phase.day + 1} OF 4`) : (language === 'hi' ? 'अगली पावन यात्रा' : 'THE NEXT JOURNEY')}</p>
                 <h2>{phaseTitle}</h2>
-                {phase.day >= 0 && <p className="festival-offerings">{t.ritualOfferings[phase.day]}</p>}
-                <p className="festival-description">{phase.day >= 0 ? t.ritualShort[phase.day] : phase.status === 'next-year' ? (language === 'hi' ? 'इस वर्ष का महापर्व संपन्न। छठी मैया की कृपा बनी रहे।' : 'This year’s celebration is complete. May Chhathi Maiya’s blessings stay with you.') : t.journeyIntro}</p>
               </div>
               <div className="hero-countdown">
                 <p className="festival-count-label">{countdownLabel}</p>
                 {phase.target !== null && <div className="countdown" role="timer" aria-label={countdownLabel}>{[['days', countdown.days, t.days], ['hours', countdown.hours, t.hours], ['minutes', countdown.minutes, t.minutes], ['seconds', countdown.seconds, t.seconds]].map(([key, value, label]) => (<div className="count-item" key={key}><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>))}</div>}
                 <p className="festival-time-note">{language === 'hi' ? 'दिन भारतीय समयानुसार बदलते हैं · अर्घ्य अपने स्थानीय सूर्योदय / सूर्यास्त पर दें' : 'Days change at midnight IST · Observe Arghya at your local sunrise / sunset'}</p>
               </div>
-              <div className="prayer-connection"><span className={liveState === 'connected' ? 'connected' : ''} />{liveLabel}</div>
+
               <div className="hero-date"><CalendarDays size={15} /> {dateRange}</div>
-              <div className="festival-day-track" aria-label={language === 'hi' ? 'चार पावन दिन' : 'The four sacred days'}>{t.fourDays.map((title, i) => <button key={title} className={phase.day === i ? 'is-today' : phase.day > i ? 'is-complete' : ''} aria-current={phase.day === i ? 'date' : undefined} onClick={() => { setRitual(i); choose('The journey'); }}><span>{phase.day > i ? <Check size={12} /> : String(i + 1).padStart(2, '0')}</span><strong>{title}</strong><small>{new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' }).format(new Date(festival.starts[i]))}</small></button>)}</div>
-              <button className="festival-guide" onClick={() => { setRitual(Math.max(0, phase.day)); choose('The journey'); }}>{language === 'hi' ? 'आज की विधि और अर्पण' : 'Explore the rituals & offerings'} <ArrowRight size={14} /></button>
+              <div className="festival-day-track" aria-label={language === 'hi' ? 'चार पावन दिन' : 'The four sacred days'}>{t.fourDays.map((title, i) => <button key={title} className={phase.day === i ? 'is-today' : phase.day > i ? 'is-complete' : ''} aria-current={phase.day === i ? 'date' : undefined} onClick={() => setRitualDialog(i)}><span>{phase.day > i ? <Check size={12} /> : String(i + 1).padStart(2, '0')}</span><strong>{title}</strong><small>{new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' }).format(new Date(festival.starts[i]))}</small></button>)}</div>
+              <button className="festival-guide" onClick={() => setRitualDialog(Math.max(0, phase.day))}>{language === 'hi' ? 'आज की विधि और अर्पण' : 'Explore the rituals & offerings'} <ArrowRight size={14} /></button>
             </div>
-            <aside className="hero-chat" aria-label={t.live}>
-              <div className="prayer-card-heading"><span className="prayer-card-icon"><Flame size={22} /></span><div><p>{language === 'hi' ? 'एक दीप · एक प्रार्थना' : 'ONE DIYA. ONE WISH.'}</p><h2>{language === 'hi' ? 'अपनी प्रार्थना अर्पित करें।' : 'Let your prayer find light.'}</h2></div></div>
-              <p className="prayer-card-intro">{language === 'hi' ? 'मन की बात लिखें, और साझा घाट पर एक दीप जलाएँ।' : 'Leave a little hope on the water. Your prayer becomes a diya on our shared ghat.'}</p>
-              <div className="chat-stream">{wishes.slice(-1).reverse().map((w, i) => (<article className="chat-message" key={w.id}><div className="chat-person"><span>{w.name.slice(0, 1)}</span><strong>{w.name}</strong><small>{i === 0 ? language === 'hi' ? 'अभी' : 'just now' : `${i * 4 + 2}${language === 'hi' ? 'मि' : 'm'}`}</small></div><p>{w.message}</p></article>))}{!wishes.length && (<p className="chat-empty">{t.empty}</p>)}</div>
-              <form className="inline-prayer" onSubmit={submitWish}><label className="prayer-field-label" htmlFor="prayer-name">{t.name}</label><input id="prayer-name" aria-label={t.name} required maxLength="50" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.name} /><label className="prayer-field-label" htmlFor="prayer-message">{language === 'hi' ? 'आपकी प्रार्थना' : 'Your prayer'}</label><textarea id="prayer-message" aria-label={language === 'hi' ? 'प्रार्थना संदेश' : 'Prayer message'} required maxLength="220" rows="2" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t.prayer} /><div className="inline-prayer-bottom"><button type="submit"><Flame size={14} /> {language === 'hi' ? 'दीप जलाएँ' : 'Float a diya'} <ArrowRight size={14} /></button></div>{toast && <small className="inline-toast">{toast}</small>}</form>
-            </aside>
+            <section className="river-stage" aria-label={language === 'hi' ? 'पावन नदी पर भक्तों के दीप' : 'The sacred river of lights'}>
+              <GhatScene mode={themeMode} festivalDay={phase.day} />
+              <img key={Math.max(0, phase.day)} onLoad={event => event.currentTarget.classList.add('loaded')} className="daily-artwork" src={`/images/ritual-${Math.max(0, phase.day)}.webp`} alt={language === 'hi' ? `${t.fourDays[Math.max(0, phase.day)]} की कल्पित कलाकृति` : `Imagined artwork for ${t.fourDays[Math.max(0, phase.day)]}`} fetchPriority="high" />
+              <div className="river-stage-vignette" aria-hidden="true" />
+              <div className="river-stage-caption"><span />{language === 'hi' ? 'आस्था की नदी' : 'A RIVER OF DEVOTION'}<span /></div>
             <div
               className="floating-diyas"
               aria-label={language === 'hi' ? 'भक्तों के दीप' : 'Floating diyas shared by visitors'}
-              style={{
-                position: 'absolute',
-                top: '62%',
-                right: 0,
-                bottom: 0,
-                left: 0,
-                overflow: 'hidden',
-                isolation: 'isolate',
-              }}
             >
               {wishes.slice(-40).map((w, i) => (
                 <button key={w.id} className="floating-diya" style={{ ...diyaWaterPosition(i), pointerEvents: 'auto', animationDelay: `-${(i % 7) * 0.55}s`, animationDuration: `${12 + (i % 5) * 2.3}s` }} aria-label={`${language === 'hi' ? 'दीप' : 'Diya'} · ${w.name}: ${w.message}`}>
@@ -492,12 +517,20 @@ function App() {
                 </button>
               ))}
             </div>
-            <div className="hero-bottom audio-open"><div className="audio-player-shell"><AudioPlayer language={language} onPlayingChange={setMusicPlaying} /></div></div>
+              <p className="river-stage-note">{language === 'hi' ? 'हर दीप में एक प्रार्थना' : 'Every light carries a prayer'}</p>
+            </section>
+            <aside className="hero-chat" aria-label={t.live}>
+              <div className="prayer-connection"><span className={liveState === 'connected' ? 'connected' : ''} />{liveLabel}</div><div className="prayer-card-heading"><span className="prayer-card-icon"><Flame size={22} /></span><div><p>{language === 'hi' ? 'एक दीप · एक प्रार्थना' : 'ONE DIYA. ONE WISH.'}</p><h2>{language === 'hi' ? 'अपनी प्रार्थना अर्पित करें।' : 'Let your prayer find light.'}</h2></div></div>
+              <p className="prayer-card-intro">{language === 'hi' ? 'मन की बात लिखें, और साझा घाट पर एक दीप जलाएँ।' : 'Leave a little hope on the water. Your prayer becomes a diya on our shared ghat.'}</p>
+              <div className="chat-stream">{wishes.slice(-1).reverse().map((w, i) => (<article className="chat-message" key={w.id}><div className="chat-person"><span>{w.name.slice(0, 1)}</span><strong>{w.name}</strong><small>{i === 0 ? language === 'hi' ? 'अभी' : 'just now' : `${i * 4 + 2}${language === 'hi' ? 'मि' : 'm'}`}</small></div><p>{w.message}</p></article>))}{!wishes.length && (<p className="chat-empty">{t.empty}</p>)}</div>
+              <form className="inline-prayer" onSubmit={submitWish}><label className="prayer-field-label" htmlFor="prayer-name">{t.name}</label><input id="prayer-name" aria-label={t.name} required maxLength="50" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.name} /><label className="prayer-field-label" htmlFor="prayer-message">{language === 'hi' ? 'आपकी प्रार्थना' : 'Your prayer'}</label><textarea id="prayer-message" aria-label={language === 'hi' ? 'प्रार्थना संदेश' : 'Prayer message'} required maxLength="220" rows="2" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t.prayer} /><div className="inline-prayer-bottom"><button type="submit"><Flame size={14} /> {language === 'hi' ? 'दीप जलाएँ' : 'Float a diya'} <ArrowRight size={14} /></button></div>{toast && <small className="inline-toast">{toast}</small>}</form>
+            </aside>
+
             <div className="scene-label">{({ morning: 'FIRST LIGHT', evening: 'LAST LIGHT', dawn: 'FIRST LIGHT', day: 'DAYLIGHT', sunset: 'LAST LIGHT', night: 'MOONLIT GHAT' })[mode]}<span>{override ? 'PREVIEW MODE' : 'ASIA / KOLKATA'}</span></div>
           </section>
         )}
         {nav === 'The journey' && (
-          <section className="journey section" id="the-journey"><div className="section-heading"><div><p className="eyebrow align-left">{t.journeyEyebrow}</p><h2>{t.journeyTitle}</h2></div><p>{t.journeyIntro}</p></div><div className="journey-layout"><div className="ritual-list">{displayRituals.map((r, i) => (<button key={r.mark} aria-current={phase.day === i ? 'step' : undefined} className={`ritual-row ${ritual === i ? 'current' : ''}`} onClick={() => setRitual(i)}><span className="ritual-number">{r.mark}</span><span className="ritual-main"><strong>{r.name}</strong><small>{r.short}{phase.day === i ? (language === 'hi' ? ' · आज' : ' · Today') : ''}</small></span><span className="ritual-date">{ritualDate(festival.dates[i], language)}</span><ArrowRight className="ritual-arrow" size={17} /></button>))}</div><article className="ritual-detail" key={ritual}><p className="eyebrow align-left">{displayRituals[ritual].date}</p><div className="detail-mark">{displayRituals[ritual].mark}</div><h3>{displayRituals[ritual].name}</h3><p className="detail-short">{displayRituals[ritual].short}</p><p className="detail-copy">{displayRituals[ritual].text}</p><div className="detail-offering"><span>{t.atGhat}</span><strong>{displayRituals[ritual].offerings}</strong></div><div className="detail-controls"><button onClick={() => setRitual(Math.max(0, ritual - 1))} disabled={ritual === 0}><ArrowLeft size={16} /> {t.previous}</button><button onClick={() => setRitual(Math.min(3, ritual + 1))} disabled={ritual === 3}>{t.nextDay} <ArrowRight size={16} /></button></div></article></div></section>
+          <section className="journey section" id="the-journey"><div className="section-heading"><div><p className="eyebrow align-left">{t.journeyEyebrow}</p><h2>{t.journeyTitle}</h2></div><p>{t.journeyIntro}</p></div><div className="journey-layout"><div className="ritual-list">{displayRituals.map((r, i) => (<button key={r.mark} aria-current={phase.day === i ? 'step' : undefined} className={`ritual-row ${ritual === i ? 'current' : ''}`} onClick={() => { setRitual(i); setRitualDialog(i); }}><span className="ritual-number">{r.mark}</span><span className="ritual-main"><strong>{r.name}</strong><small>{r.short}{phase.day === i ? (language === 'hi' ? ' · आज' : ' · Today') : ''}</small></span><span className="ritual-date">{ritualDate(festival.dates[i], language)}</span><ArrowRight className="ritual-arrow" size={17} /></button>))}</div><article className="ritual-detail" key={ritual}><img className="journey-artwork" src={`/images/ritual-${ritual}.webp`} alt={displayRituals[ritual].name} loading="lazy" /><p className="eyebrow align-left">{displayRituals[ritual].date}</p><div className="detail-mark">{displayRituals[ritual].mark}</div><h3>{displayRituals[ritual].name}</h3><p className="detail-short">{displayRituals[ritual].short}</p><p className="detail-copy">{displayRituals[ritual].text}</p><div className="detail-offering"><span>{t.atGhat}</span><strong>{displayRituals[ritual].offerings}</strong></div><div className="detail-controls"><button onClick={() => setRitual(Math.max(0, ritual - 1))} disabled={ritual === 0}><ArrowLeft size={16} /> {t.previous}</button><button onClick={() => setRitual(Math.min(3, ritual + 1))} disabled={ritual === 3}>{t.nextDay} <ArrowRight size={16} /></button></div></article></div></section>
         )}
         {nav === 'Offerings' && (
           <section className="samagri section" id="offerings"><div className="section-heading"><div><p className="eyebrow align-left">{t.prepare}</p><h2>{t.offerTitle}</h2></div><p>{t.offerIntro}</p></div><div className="samagri-grid">{displaySamagri.map(([title, copy], i) => (<article className="samagri-item" key={title}><span className="samagri-icon">{i === 4 ? <Flame size={19} /> : <span>0{i + 1}</span>}</span><h3>{title}</h3><p>{copy}</p></article>))}</div></section>
@@ -512,6 +545,8 @@ function App() {
       {nav !== 'Home' && (
         <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a><span>{t.tagline} · {festival.year}</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
       )}
+      <RitualPalette index={ritualDialog} rituals={displayRituals} language={language} onChange={setRitualDialog} onClose={() => setRitualDialog(null)} />
+      <div className="persistent-player" aria-label={language === 'hi' ? 'छठ के गीत' : 'Chhath music player'}><AudioPlayer language={language} onPlayingChange={setMusicPlaying} /></div>
       <span className={`made-by ${nav === 'Home' ? 'on-home' : 'on-subpage'}`}>Made with <span aria-label="love">♥</span> by Aryan</span>
     </div>
   );
