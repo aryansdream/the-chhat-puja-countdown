@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { upload as uploadBlob } from '@vercel/blob/client';
 import { ArrowDown, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, ChevronDown, Clock3, Flame, Menu, Moon, Pause, Play, SkipBack, SkipForward, Sun, Upload, Volume2, Waves, X, Users } from 'lucide-react';
 import './styles.css';
+import { festivalState, countdownParts, ritualDate, festivalRange } from './festival.js';
 
 function AudioPlayer({ language, onPlayingChange }) {
   const [tracks, setTracks] = useState([]);
@@ -97,13 +98,13 @@ function AudioPlayer({ language, onPlayingChange }) {
     <div className="audio-player">
       <audio crossOrigin="anonymous" ref={audioRef} preload="metadata" onPlay={() => { const context = prepareEcho(); if (context?.state === 'suspended') context.resume().catch(() => {}); setPlaying(true); onPlayingChange?.(true); setStatus(''); }} onPause={() => { setPlaying(false); onPlayingChange?.(false); }} onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)} onEnded={() => changeTrack(1)} onError={() => track && setStatus('Error playing file.')} />
       <div className="audio-track-info"><strong>{track?.title || (language === 'hi' ? 'छठ के गीत' : 'Chhath songs')}</strong><span>{status || (tracks.length ? `${selected + 1} / ${tracks.length} · ${language === 'hi' ? 'साझा प्लेलिस्ट' : 'shared playlist'}` : language === 'hi' ? 'जल्द ही गीत उपलब्ध होंगे' : 'Songs will appear here')}</span></div>
-      <div className="audio-controls"><button onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
-        <div className="audio-volume"><Volume2 size={16} /><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></div>
+      <div className="audio-controls"><button aria-label={language === 'hi' ? 'पिछला गीत' : 'Previous song'} onClick={() => changeTrack(-1)} disabled={!tracks.length}><SkipBack size={17} /></button><button className="audio-play" aria-label={playing ? (language === 'hi' ? 'रोकें' : 'Pause music') : (language === 'hi' ? 'संगीत चलाएँ' : 'Play music')} onClick={togglePlayback}>{playing ? <Pause size={19} /> : <Play size={19} />}</button><button aria-label={language === 'hi' ? 'अगला गीत' : 'Next song'} onClick={() => changeTrack(1)} disabled={!tracks.length}><SkipForward size={17} /></button>
+        <div className="audio-volume"><Volume2 size={16} /><input aria-label={language === 'hi' ? 'आवाज़' : 'Volume'} type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></div>
         <button className={`audio-echo ${echoEnabled ? 'active' : ''}`} type="button" onClick={() => setEchoEnabled(!echoEnabled)}><Waves size={15} /><span>{language === 'hi' ? 'इको' : 'Echo'}</span></button>
         <label className={`audio-delay ${echoEnabled ? '' : 'muted'}`}><span>{language === 'hi' ? 'गूंज' : 'Delay'}</span><input type="range" min="0.18" max="0.95" step="0.01" value={echoDelay} disabled={!echoEnabled} onChange={(e) => setEchoDelay(Number(e.target.value))} /><small>{echoDelay.toFixed(2)}s</small></label>
         <a className="audio-add" href="/admin"><Upload size={15} /><span>{language === 'hi' ? 'मालिक प्रबंधन' : 'Manage songs'}</span></a>
       </div>
-      <div className="audio-progress"><span>{timeLabel(time)}</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(time, duration || 0)} onChange={(e) => { const next = Number(e.target.value); setTime(next); if (audioRef.current) audioRef.current.currentTime = next; }} /><span>{timeLabel(duration)}</span></div>
+      <div className="audio-progress"><span>{timeLabel(time)}</span><input aria-label={language === 'hi' ? 'गीत की प्रगति' : 'Song progress'} type="range" min="0" max={duration || 0} step="0.1" value={Math.min(time, duration || 0)} onChange={(e) => { const next = Number(e.target.value); setTime(next); if (audioRef.current) audioRef.current.currentTime = next; }} /><span>{timeLabel(duration)}</span></div>
     </div>
   );
 }
@@ -212,11 +213,6 @@ function orbPosition(mode, date = new Date()) {
   return { x: 12 + 76 * Math.max(0, Math.min(1, nightProgress)), y: 38 - 9 * Math.sin(Math.PI * nightProgress), body: moon.illumination < 4 ? 'none' : 'moon', phase: moon.fraction };
 }
 
-function countdownParts(now = Date.now()) {
-  const target = Date.parse('2026-11-15T17:00:00+05:30'), diff = Math.max(0, target - now);
-  return { days: Math.floor(diff / 86400000), hours: Math.floor((diff % 86400000) / 3600000), minutes: Math.floor((diff % 3600000) / 60000), seconds: Math.floor((diff % 60000) / 1000), passed: now >= target };
-}
-
 function GhatScene({ mode, showOrb }) {
   const ref = useRef(null);
   const modeRef = useRef(mode); const showOrbRef = useRef(showOrb);
@@ -227,7 +223,7 @@ function GhatScene({ mode, showOrb }) {
   useEffect(() => {
     const canvas = ref.current; const ctx = canvas.getContext('2d');
     
-    animEntities.current.clouds = Array.from({length: 6}, () => ({ x: Math.random(), y: 0.05 + Math.random() * 0.25, speed: 0.0002 + Math.random() * 0.0004, scale: 0.4 + Math.random() * 0.8 }));
+    animEntities.current.clouds = Array.from({length: 6}, () => ({ x: Math.random(), y: 0.05 + Math.random() * 0.25, speed: 0.0002 + Math.random() * 0.0004, scale: 0.4 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2 }));
     animEntities.current.birds = Array.from({length: 14}, () => ({ x: Math.random(), y: 0.1 + Math.random() * 0.3, speed: 0.0006 + Math.random() * 0.001, scale: 0.3 + Math.random() * 0.5, flap: 10 + Math.random() * 8, phase: Math.random() * Math.PI * 2 }));
 
     let raf, w = 0, h = 0, t = 0;
@@ -315,7 +311,11 @@ function GhatScene({ mode, showOrb }) {
       }
     };
 
-    const scene = () => {
+    let previousFrame = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const scene = (timestamp = 0) => {
+      if (document.hidden || timestamp - previousFrame < (reducedMotion ? 1000 : 40)) { raf = requestAnimationFrame(scene); return; }
+      previousFrame = timestamp;
       t += 0.01; const target = Math.max(0, sceneNames.indexOf(modeRef.current)); sceneBlend += (target - sceneBlend) * 0.015;
       const colors = paletteAt(sceneBlend), night = modeRef.current === 'night', celestial = orbPosition(modeRef.current, new Date()), sx = (w * celestial.x) / 100, r = Math.min(w * 0.065, 53);
       
@@ -401,32 +401,28 @@ function diyaWaterPosition(index) {
 
 function App() {
   const [nav, setNav] = useState('Home'); const [override, setOverride] = useState(null); const [now, setNow] = useState(Date.now());
-  const [ritual, setRitual] = useState(2); const [name, setName] = useState(''); const [message, setMessage] = useState('');
+  const [ritual, setRitual] = useState(() => Math.max(0, festivalState().day)); const [name, setName] = useState(''); const [message, setMessage] = useState('');
   const [diya, setDiya] = useState('Earthen diya'); const [wishes, setWishes] = useState([]); const [toast, setToast] = useState('');
   const [liveState, setLiveState] = useState('connecting'); const [language, setLanguage] = useState(() => localStorage.getItem('chhath-language') === 'hi' ? 'hi' : 'en');
   const [menu, setMenu] = useState(false); const [languagePulse, setLanguagePulse] = useState(false); const [musicPlaying, setMusicPlaying] = useState(false);
   
-  // Real-time fake live counter
-  const [onlineUsers, setOnlineUsers] = useState(134);
-
   const t = translations[language]; const autoScene = sceneForNow(new Date(now)), mode = override || autoScene, themeMode = mode === 'morning' ? 'dawn' : mode === 'evening' ? 'sunset' : mode;
-  const moon = useMemo(() => lunarData(new Date(now)), [now]), countdown = useMemo(() => countdownParts(now), [now]);
+  const moon = useMemo(() => lunarData(new Date(now)), [now]);
+  const phase = festivalState(now), festival = phase.festival;
+  const countdown = countdownParts(now, phase.target);
+  const dateRange = festivalRange(festival, language);
+  const phaseTitle = phase.day >= 0 ? t.fourDays[phase.day] : language === 'hi' ? `छठ पूजा ${festival.year}` : `Chhath Puja ${festival.year}`;
+  const countdownLabel = phase.status === 'unlisted' ? (language === 'hi' ? 'अगले पर्व की तिथियाँ जल्द आएँगी' : 'Next festival dates will be announced') : phase.day === 3 ? (language === 'hi' ? 'ऊषा अर्घ्य और पारण का पावन दिन' : 'A day of Usha Arghya, Parana and shared prasad') : phase.status === 'next-year' ? (language === 'hi' ? `अगले वर्ष के छठ पूजा ${festival.year} तक` : `Until next year’s Chhath Puja ${festival.year}`) : (language === 'hi' ? `${t.fourDays[phase.nextDay]} के दिन तक` : `Until ${t.fourDays[phase.nextDay]} day begins`);
   const moonName = language === 'hi' ? t.moonNames[['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'].indexOf(moon.name)] || moon.name : moon.name;
 
   const liveLabel = { connecting: language === 'hi' ? 'प्रार्थना दीवार से जुड़ रहे हैं…' : 'Connecting to prayer wall…', connected: t.liveConnected, reconnecting: t.reconnecting, unavailable: t.serverUnavailable }[liveState] || liveState;
-  const displayRituals = rituals.map((r, i) => language === 'hi' ? { ...r, name: t.fourDays[i], short: t.ritualShort[i], text: t.ritualText[i], offerings: t.ritualOfferings[i], date: t.ritualDates[i] } : r);
+  const displayRituals = rituals.map((r, i) => ({ ...r, name: t.fourDays[i], short: t.ritualShort[i], text: t.ritualText[i], offerings: t.ritualOfferings[i], date: ritualDate(festival.dates[i], language, true) }));
   const displaySamagri = samagri.map(([title, copy], i) => language === 'hi' ? [t.samagriNames[i], t.samagriText[i]] : [title, copy]);
 
   useEffect(() => { localStorage.setItem('chhath-language', language); document.documentElement.lang = language; }, [language]);
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   
-  // Simulate live users fluctuating
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOnlineUsers(prev => Math.max(120, prev + Math.floor(Math.random() * 5) - 2));
-    }, 4500);
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => { setRitual(Math.max(0, phase.day)); setOverride(null); }, [phase.day, festival.year]);
 
   useEffect(() => {
     let active = true; const refresh = () => fetch('/api/prayers').then((response) => { if (!response.ok) throw new Error('Prayer service unavailable'); return response.json(); }).then((data) => { if (active) { setWishes(Array.isArray(data.prayers) ? data.prayers : []); setLiveState('connected'); } }).catch(() => { if (active) setLiveState('unavailable'); });
@@ -446,7 +442,7 @@ function App() {
   }
 
   return (
-    <div id="top" className={`site ${themeMode} ${nav === 'Home' ? 'landing' : 'subpage'} ${languagePulse ? 'language-pulse' : ''} ${musicPlaying ? 'music-playing' : ''}`}>
+    <div id="top" className={`site ${themeMode} ${nav === 'Home' ? 'landing' : 'subpage'} ${languagePulse ? 'language-pulse' : ''} ${musicPlaying ? 'music-playing' : ''} festival-day-${phase.day + 1}`} >
       <style>{`
         @keyframes float-drift {
           0%, 100% { transform: translate(0, 0) rotate(-2deg); }
@@ -462,7 +458,7 @@ function App() {
       
       <header className="topbar">
         <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={20} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a>
-        <button className="menu-toggle" onClick={() => setMenu(!menu)} aria-label={language === 'hi' ? 'नेविगेशन खोलें' : 'Toggle navigation'}>{menu ? <X /> : <Menu />}</button>
+        <button className="menu-toggle" aria-expanded={menu} onClick={() => setMenu(!menu)} aria-label={language === 'hi' ? 'नेविगेशन खोलें' : 'Toggle navigation'}>{menu ? <X /> : <Menu />}</button>
         <nav className={menu ? 'nav-links open' : 'nav-links'} aria-label={language === 'hi' ? 'मुख्य नेविगेशन' : 'Main navigation'}>{['Home', 'The journey', 'Offerings', 'Prayer wall'].map((n, i) => (<button key={n} onClick={() => choose(n)} className={nav === n ? 'selected' : ''}>{[t.home, t.journey, t.offerings, t.wall][i]}</button>))}</nav>
         <div className="nav-side">
           <div className="preview-switch" aria-label={language === 'hi' ? 'समय दृश्य' : 'Scene preview'}>
@@ -473,23 +469,35 @@ function App() {
           <span className="moon-status"><Moon size={13} />{moonName} · {moon.illumination}%</span>
         </div>
       </header>
-      <div className="global-scene" aria-hidden="true"><GhatScene mode={themeMode} showOrb /><div className="global-scene-shade" /></div>
+      <div className="global-scene" aria-hidden="true"><div className="ghat-photograph ghat-photograph-night" /><div className="ghat-photograph ghat-photograph-day" /><GhatScene mode={themeMode} showOrb /><div className="global-scene-shade" /></div>
       <main key={nav} className={nav === 'Home' ? 'home-view' : 'content-view'}>
         {nav === 'Home' && (
           <section className="hero" aria-label={language === 'hi' ? 'छठ पूजा घाट' : 'Chhath sanctuary'}>
             <div className="hero-shade" />
             <div className="hero-content">
-              <h1><span className="hindi-title">छठ</span></h1>
-              <div className="hero-countdown"><div className="countdown">{countdown.passed ? (<span className="festival-live">{t.festivalLive}</span>) : (<>{[['days', countdown.days, t.days], ['hours', countdown.hours, t.hours], ['minutes', countdown.minutes, t.minutes], ['seconds', countdown.seconds, t.seconds],].map(([key, value, label]) => (<div className="count-item" key={key}><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>))}</>)}</div></div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '20px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: '#4ade80', borderRadius: '50%', animation: 'pulse-dot 2s infinite' }}></span>
-                <span><strong>{onlineUsers}</strong> {language === 'hi' ? 'भक्त अभी लाइव हैं' : 'devotees online'}</span>
+              <p className="sanctuary-eyebrow"><span /> {language === 'hi' ? 'सूर्य की उपासना · प्रकृति का उत्सव' : 'TO THE SUN. TO LIFE. TOGETHER.'}</p>
+              <h1><span className="hindi-title">छठ</span><span className="hero-title-caption">{language === 'hi' ? 'आस्था का महापर्व' : 'A quiet offering. A shared light.'}</span></h1>
+              <div className="festival-today" aria-live="polite">
+                <p className="festival-kicker">{phase.day >= 0 ? (language === 'hi' ? `आज · दिन ${phase.day + 1} / 4` : `TODAY · DAY ${phase.day + 1} OF 4`) : (language === 'hi' ? 'अगली पावन यात्रा' : 'THE NEXT JOURNEY')}</p>
+                <h2>{phaseTitle}</h2>
+                {phase.day >= 0 && <p className="festival-offerings">{t.ritualOfferings[phase.day]}</p>}
+                <p className="festival-description">{phase.day >= 0 ? t.ritualShort[phase.day] : phase.status === 'next-year' ? (language === 'hi' ? 'इस वर्ष का महापर्व संपन्न। छठी मैया की कृपा बनी रहे।' : 'This year’s celebration is complete. May Chhathi Maiya’s blessings stay with you.') : t.journeyIntro}</p>
               </div>
-              <div className="hero-date"><CalendarDays size={15} /> {language === 'hi' ? '१३ — १६ नवंबर २०२६' : '13 — 16 November 2026'}</div>
+              <div className="hero-countdown">
+                <p className="festival-count-label">{countdownLabel}</p>
+                {phase.target !== null && <div className="countdown" role="timer" aria-label={countdownLabel}>{[['days', countdown.days, t.days], ['hours', countdown.hours, t.hours], ['minutes', countdown.minutes, t.minutes], ['seconds', countdown.seconds, t.seconds]].map(([key, value, label]) => (<div className="count-item" key={key}><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>))}</div>}
+                <p className="festival-time-note">{language === 'hi' ? 'दिन भारतीय समयानुसार बदलते हैं · अर्घ्य अपने स्थानीय सूर्योदय / सूर्यास्त पर दें' : 'Days change at midnight IST · Observe Arghya at your local sunrise / sunset'}</p>
+              </div>
+              <div className="prayer-connection"><span className={liveState === 'connected' ? 'connected' : ''} />{liveLabel}</div>
+              <div className="hero-date"><CalendarDays size={15} /> {dateRange}</div>
+              <div className="festival-day-track" aria-label={language === 'hi' ? 'चार पावन दिन' : 'The four sacred days'}>{t.fourDays.map((title, i) => <button key={title} className={phase.day === i ? 'is-today' : phase.day > i ? 'is-complete' : ''} aria-current={phase.day === i ? 'date' : undefined} onClick={() => { setRitual(i); choose('The journey'); }}><span>{phase.day > i ? <Check size={12} /> : String(i + 1).padStart(2, '0')}</span><strong>{title}</strong><small>{new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' }).format(new Date(festival.starts[i]))}</small></button>)}</div>
+              <button className="festival-guide" onClick={() => { setRitual(Math.max(0, phase.day)); choose('The journey'); }}>{language === 'hi' ? 'आज की विधि और अर्पण' : 'Explore the rituals & offerings'} <ArrowRight size={14} /></button>
             </div>
             <aside className="hero-chat" aria-label={t.live}>
+              <div className="prayer-card-heading"><span className="prayer-card-icon"><Flame size={22} /></span><div><p>{language === 'hi' ? 'एक दीप · एक प्रार्थना' : 'ONE DIYA. ONE WISH.'}</p><h2>{language === 'hi' ? 'अपनी प्रार्थना अर्पित करें।' : 'Let your prayer find light.'}</h2></div></div>
+              <p className="prayer-card-intro">{language === 'hi' ? 'मन की बात लिखें, और साझा घाट पर एक दीप जलाएँ।' : 'Leave a little hope on the water. Your prayer becomes a diya on our shared ghat.'}</p>
               <div className="chat-stream">{wishes.slice(-1).reverse().map((w, i) => (<article className="chat-message" key={w.id}><div className="chat-person"><span>{w.name.slice(0, 1)}</span><strong>{w.name}</strong><small>{i === 0 ? language === 'hi' ? 'अभी' : 'just now' : `${i * 4 + 2}${language === 'hi' ? 'मि' : 'm'}`}</small></div><p>{w.message}</p></article>))}{!wishes.length && (<p className="chat-empty">{t.empty}</p>)}</div>
-              <form className="inline-prayer" onSubmit={submitWish}><input aria-label={t.name} required maxLength="50" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.name} /><textarea aria-label={language === 'hi' ? 'प्रार्थना संदेश' : 'Prayer message'} required maxLength="220" rows="2" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t.prayer} /><div className="inline-prayer-bottom"><button type="submit">{language === 'hi' ? 'भेजें' : 'Send'} <ArrowRight size={14} /></button></div>{toast && <small className="inline-toast">{toast}</small>}</form>
+              <form className="inline-prayer" onSubmit={submitWish}><label className="prayer-field-label" htmlFor="prayer-name">{t.name}</label><input id="prayer-name" aria-label={t.name} required maxLength="50" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.name} /><label className="prayer-field-label" htmlFor="prayer-message">{language === 'hi' ? 'आपकी प्रार्थना' : 'Your prayer'}</label><textarea id="prayer-message" aria-label={language === 'hi' ? 'प्रार्थना संदेश' : 'Prayer message'} required maxLength="220" rows="2" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t.prayer} /><div className="inline-prayer-bottom"><button type="submit"><Flame size={14} /> {language === 'hi' ? 'दीप जलाएँ' : 'Float a diya'} <ArrowRight size={14} /></button></div>{toast && <small className="inline-toast">{toast}</small>}</form>
             </aside>
             <div
               className="floating-diyas"
@@ -512,11 +520,11 @@ function App() {
               ))}
             </div>
             <div className="hero-bottom audio-open"><div className="audio-player-shell"><AudioPlayer language={language} onPlayingChange={setMusicPlaying} /></div></div>
-            <div className="scene-label">{mode === 'morning' ? '01 / FIRST LIGHT' : '02 / LAST LIGHT'}<span>{override ? 'PREVIEW MODE' : 'ASIA / KOLKATA'}</span></div>
+            <div className="scene-label">{({ morning: 'FIRST LIGHT', evening: 'LAST LIGHT', dawn: 'FIRST LIGHT', day: 'DAYLIGHT', sunset: 'LAST LIGHT', night: 'MOONLIT GHAT' })[mode]}<span>{override ? 'PREVIEW MODE' : 'ASIA / KOLKATA'}</span></div>
           </section>
         )}
         {nav === 'The journey' && (
-          <section className="journey section" id="the-journey"><div className="section-heading"><div><p className="eyebrow align-left">{t.journeyEyebrow}</p><h2>{t.journeyTitle}</h2></div><p>{t.journeyIntro}</p></div><div className="journey-layout"><div className="ritual-list">{displayRituals.map((r, i) => (<button key={r.mark} className={`ritual-row ${ritual === i ? 'current' : ''}`} onClick={() => setRitual(i)}><span className="ritual-number">{r.mark}</span><span className="ritual-main"><strong>{r.name}</strong><small>{r.short}</small></span><span className="ritual-date">{r.date.split(', ')[1]}</span><ArrowRight className="ritual-arrow" size={17} /></button>))}</div><article className="ritual-detail" key={ritual}><p className="eyebrow align-left">{displayRituals[ritual].date}</p><div className="detail-mark">{displayRituals[ritual].mark}</div><h3>{displayRituals[ritual].name}</h3><p className="detail-short">{displayRituals[ritual].short}</p><p className="detail-copy">{displayRituals[ritual].text}</p><div className="detail-offering"><span>{t.atGhat}</span><strong>{displayRituals[ritual].offerings}</strong></div><div className="detail-controls"><button onClick={() => setRitual(Math.max(0, ritual - 1))} disabled={ritual === 0}><ArrowLeft size={16} /> {t.previous}</button><button onClick={() => setRitual(Math.min(3, ritual + 1))} disabled={ritual === 3}>{t.nextDay} <ArrowRight size={16} /></button></div></article></div></section>
+          <section className="journey section" id="the-journey"><div className="section-heading"><div><p className="eyebrow align-left">{t.journeyEyebrow}</p><h2>{t.journeyTitle}</h2></div><p>{t.journeyIntro}</p></div><div className="journey-layout"><div className="ritual-list">{displayRituals.map((r, i) => (<button key={r.mark} aria-current={phase.day === i ? 'step' : undefined} className={`ritual-row ${ritual === i ? 'current' : ''}`} onClick={() => setRitual(i)}><span className="ritual-number">{r.mark}</span><span className="ritual-main"><strong>{r.name}</strong><small>{r.short}{phase.day === i ? (language === 'hi' ? ' · आज' : ' · Today') : ''}</small></span><span className="ritual-date">{ritualDate(festival.dates[i], language)}</span><ArrowRight className="ritual-arrow" size={17} /></button>))}</div><article className="ritual-detail" key={ritual}><p className="eyebrow align-left">{displayRituals[ritual].date}</p><div className="detail-mark">{displayRituals[ritual].mark}</div><h3>{displayRituals[ritual].name}</h3><p className="detail-short">{displayRituals[ritual].short}</p><p className="detail-copy">{displayRituals[ritual].text}</p><div className="detail-offering"><span>{t.atGhat}</span><strong>{displayRituals[ritual].offerings}</strong></div><div className="detail-controls"><button onClick={() => setRitual(Math.max(0, ritual - 1))} disabled={ritual === 0}><ArrowLeft size={16} /> {t.previous}</button><button onClick={() => setRitual(Math.min(3, ritual + 1))} disabled={ritual === 3}>{t.nextDay} <ArrowRight size={16} /></button></div></article></div></section>
         )}
         {nav === 'Offerings' && (
           <section className="samagri section" id="offerings"><div className="section-heading"><div><p className="eyebrow align-left">{t.prepare}</p><h2>{t.offerTitle}</h2></div><p>{t.offerIntro}</p></div><div className="samagri-grid">{displaySamagri.map(([title, copy], i) => (<article className="samagri-item" key={title}><span className="samagri-icon">{i === 4 ? <Flame size={19} /> : <span>0{i + 1}</span>}</span><h3>{title}</h3><p>{copy}</p></article>))}</div></section>
@@ -525,11 +533,11 @@ function App() {
           <section className="wall section" id="prayer-wall"><div className="wall-heading"><div><p className="eyebrow align-left">{t.wallEyebrow}</p><h2>{t.wallTitle}</h2><p className="wall-intro">{t.wallIntro}</p></div><div className="wall-flame"><Flame size={36} strokeWidth={1} /></div></div><div className="wall-layout"><div className="wishes"><div className="wishes-top"><span>{language === 'hi' ? 'प्रार्थना दीवार' : 'THE PRAYER WALL'} · {liveLabel.toUpperCase()}</span><span>{Math.min(wishes.length, 40)}/40 {language === 'hi' ? 'प्रवाहित दीप' : 'floating diyas'} · {wishes.length} {language === 'hi' ? 'प्रार्थनाएँ' : 'prayers'}</span></div>{wishes.slice().reverse().map((w, i) => (<article className="wish" key={w.id}><div className="wish-meta"><span><Flame size={14} />{language === 'hi' ? { 'Earthen diya': t.earthen, 'Lotus soop': t.lotus, 'Brass diya': t.brass, }[w.diya] || w.diya : w.diya}</span><span>{language === 'hi' ? 'अर्पण' : 'OFFERING'} {String(i + 1).padStart(2, '0')}</span></div><p>“{w.message}”</p><small>{w.name}</small></article>))}</div></div></section>
         )}
         {nav !== 'Home' && (
-          <section className="date-note"><span>{t.calendar}</span><p>{language === 'hi' ? '८ नवंबर · कार्तिक अमावस्या (अमावस्या तिथि; खगोलीय अमावस्या ९ नवंबर, १२:३२ IST) · १३–१६ नवंबर · चतुर्थी से सप्तमी / छठ · २४ नवंबर · कार्तिक पूर्णिमा (पूर्णिमा २०:२३ IST)' : '8 Nov · Kartik Amavasya (new-moon tithi; exact new moon 9 Nov, 12:32 IST) · 13–16 Nov · Chaturthi to Saptami / Chhath · 24 Nov · Kartik Purnima (full moon 20:23 IST)'}</p><a href="https://www.drikpanchang.com/chhath/chhath-puja-calendar.html?geoname-id=1261481&year=2026" target="_blank" rel="noreferrer">{t.tithiCalendar} <ArrowRight size={14} /></a><a href="https://aa.usno.navy.mil/calculated/moon/phases?year=2026" target="_blank" rel="noreferrer">{t.moonPhases} <ArrowRight size={14} /></a></section>
+          <section className="date-note"><span>{language === 'hi' ? `छठ पंचांग ${festival.year}` : `CHHATH CALENDAR ${festival.year}`}</span><p>{dateRange} · {language === 'hi' ? 'नहाय-खाय से ऊषा अर्घ्य तक। सभी दिन भारतीय समयानुसार बदलते हैं। अर्घ्य का समय स्थानीय सूर्योदय और सूर्यास्त पर निर्भर है।' : 'Nahay-Khay through Usha Arghya. Days follow India time; Arghya timings follow your local sunrise and sunset.'}</p><a href={`https://www.drikpanchang.com/chhath/chhath-puja-calendar.html?year=${festival.year}`} target="_blank" rel="noreferrer">{t.tithiCalendar} <ArrowRight size={14} /></a><a href={`https://aa.usno.navy.mil/calculated/moon/phases?year=${festival.year}`} target="_blank" rel="noreferrer">{t.moonPhases} <ArrowRight size={14} /></a></section>
         )}
       </main>
       {nav !== 'Home' && (
-        <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a><span>{t.tagline} · 2026</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
+        <footer><a className="brand" href="#top" onClick={(e) => { e.preventDefault(); choose('Home'); }}><span className="brand-mark"><Sun size={17} /></span><span>{language === 'hi' ? 'छठ' : 'Chhath'}<span className="brand-dot">.</span></span></a><span>{t.tagline} · {festival.year}</span><button onClick={() => choose('Home')}>{t.back} <ArrowDown size={14} /></button></footer>
       )}
       <span className={`made-by ${nav === 'Home' ? 'on-home' : 'on-subpage'}`}>Made with <span aria-label="love">♥</span> by Aryan</span>
     </div>

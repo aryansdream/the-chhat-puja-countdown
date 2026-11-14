@@ -14,4 +14,8 @@ The local `data/` folder is intentionally excluded from deployment and version c
 
 ## Calendar
 
-The 2026 ritual dates shown here are November 13–16: Nahay-Khay, Lohanda & Kharna, Sandhya Arghya, and Usha Arghya. The countdown targets November 15 at 5:00 PM India Standard Time as a general reference; actual local arghya times vary by location.
+`src/festival.js` is the shared calendar for the hero, countdown, daily offerings, and ritual journey. Verified Kartik Chhath dates are included for 2026–2030, with source links in the module. Add verified four-day dates here for later years; lunar festivals must never be advanced by adding 365 days.
+
+The active ritual changes at midnight Asia/Kolkata for all visitors, including visitors outside India. Before the festival the timer targets Nahay-Khay. During the first three days it counts to the next ritual day’s midnight, explicitly labelled as a day change rather than a local Arghya time. Usha Arghya remains visible throughout the final day. At midnight after the final day, the date range, journey, and timer switch automatically to the next festival. If the date table is exhausted, the site displays a dates-pending message rather than inventing lunar dates.
+
+Run `node --test src/festival.test.js` for midnight boundaries, festival completion, year rollover, localized dates, and countdown arithmetic. Run `npm run build` for the production build.
